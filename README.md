@@ -1,10 +1,11 @@
-# CounterstrikeSharp - LuckyDefuse
+# CounterstrikeSharp - LuckyDefuse - SainteKhalifa Fork
 
-[![UpdateManager Compatible](https://img.shields.io/badge/CS2-UpdateManager-darkgreen)](https://github.com/Kandru/cs2-update-manager/)
-[![GitHub release](https://img.shields.io/github/release/Kandru/cs2-lucky-defuse?include_prereleases=&sort=semver&color=blue)](https://github.com/Kandru/cs2-lucky-defuse/releases/)
-[![License](https://img.shields.io/badge/License-GPLv3-blue)](#license)
-[![issues - cs2-lucky-defuse](https://img.shields.io/github/issues/Kandru/cs2-lucky-defuse)](https://github.com/Kandru/cs2-lucky-defuse/issues)
-[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=C2AVYKGVP9TRG)
+### Bomb Planting & Defuse Menu Changes
+
+- The defuse menu is now displayed immediately when a player begins planting the bomb (triggered on `EventBombBeginPlant`).
+- If the planting is aborted/cancelled, the menu closes instantly and any pending selection is ignored.
+- If the bomb is fully planted without the player having chosen a wire, the game will automatically select a random wire 5 seconds after successful planting and notify players via a chat message.
+
 
 This plug-in provides the ability to defuse the bomb by having a 25% chance to cut the correct wire.
 
