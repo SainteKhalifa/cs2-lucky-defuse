@@ -9,9 +9,11 @@ namespace LuckyDefuse
 {
     public partial class LuckyDefuse : BasePlugin
     {
+        // Plugin basic information
         public override string ModuleName => "Lucky Defuse Plugin";
-        public override string ModuleAuthor => "Jon-Mailes Graeffe <mail@jonni.it>";
+        public override string ModuleAuthor => "SainteKhalifa fork of Jon-Mailes Graeffe <mail@jonni.it>";
 
+        // List of colors used for wires (logic only)
         private readonly Color[] _colors =
         {
             Color.Red,
@@ -20,6 +22,7 @@ namespace LuckyDefuse
             Color.Yellow
         };
 
+        // Chat color codes matching wire colors
         private readonly char[] _chatColors =
         {
             ChatColors.Red,
@@ -28,7 +31,7 @@ namespace LuckyDefuse
             ChatColors.Yellow
         };
 
-        // 🔑 CLÉS DE TRADUCTION DES COULEURS
+        // Localization keys for wire colors
         private readonly string[] _colorKeys =
         {
             "color_red",
@@ -37,17 +40,35 @@ namespace LuckyDefuse
             "color_yellow"
         };
 
+        // Current CT defusing the bomb
         private CCSPlayerController? _defuser;
+
+        // Terrorist who planted the bomb
         private CCSPlayerController? _planter;
+
+        // Menus for planter and defuser
         private WireMenu? _planterMenu;
         private WireMenu? _defuserMenu;
+
+        // Menu options text
         private string[]? _menuOptions;
+
+        // Timer used for delayed notification
         private CounterStrikeSharp.API.Modules.Timers.Timer? _notificationTimer;
+
+        // Index of the correct wire
         private int _wire;
+
+        // Indicates if planter chose a wire manually
         private bool _wireChosenManually;
+
+        // Indicates if the round has ended
         private bool _roundEnded;
+
+        // Indicates if bomb is currently being planted
         private bool _isPlanting;
 
+        // Adds default chat prefix
         private string Prefix(string message)
         {
             return $" {ChatColors.Default}{message}";
@@ -55,29 +76,32 @@ namespace LuckyDefuse
 
         public override void Load(bool hotReload)
         {
+            // Set culture based on config language
             var culture = Config.Language.ToLowerInvariant() == "fr" ? "fr-FR" : "en-US";
             CultureInfo.CurrentCulture = new CultureInfo(culture);
             CultureInfo.CurrentUICulture = new CultureInfo(culture);
 
-            // 🟢 MENU AVEC COULEURS TRADUITES
+            // Build menu options with translated color names
             _menuOptions = new string[_colors.Length];
             for (int i = 0; i < _colors.Length; ++i)
             {
                 var translatedColor = Localizer[_colorKeys[i]].Value;
-
                 _menuOptions[i] =
                     $"<span color=\"{_colors[i].Name.ToLowerInvariant()}\">{i + 1}. {translatedColor}</span>";
             }
 
+            // Create menus
             _planterMenu = new(this, Localizer["planterMenuTitle"].Value, _menuOptions);
             _defuserMenu = new(this, Localizer["defuserMenuTitle"].Value, _menuOptions);
 
+            // Round start reset
             RegisterEventHandler<EventRoundStart>((_, _) =>
             {
                 _roundEnded = false;
                 return HookResult.Continue;
             });
 
+            // Round end cleanup
             RegisterEventHandler<EventRoundEnd>((_, _) =>
             {
                 _planter = null;
@@ -86,14 +110,16 @@ namespace LuckyDefuse
                 _isPlanting = false;
                 _roundEnded = true;
 
+                // Kill pending notification timer
                 _notificationTimer?.Kill();
                 _notificationTimer = null;
 
-                _defuserMenu?.Close();
                 _planterMenu?.Close();
+                _defuserMenu?.Close();
                 return HookResult.Continue;
             });
 
+            // Bomb planting started
             RegisterEventHandler<EventBombBeginplant>((@event, _) =>
             {
                 if (_roundEnded || @event.Userid == null || !@event.Userid.IsValid)
@@ -102,12 +128,15 @@ namespace LuckyDefuse
                 _planter = @event.Userid;
                 _isPlanting = true;
                 _wireChosenManually = false;
+
+                // Preselect a random wire
                 _wire = Random.Shared.Next(_colors.Length);
 
                 _planterMenu?.Open(@event.Userid);
                 return HookResult.Continue;
             });
 
+            // Bomb planting aborted
             RegisterEventHandler<EventBombAbortplant>((@event, _) =>
             {
                 if (_planter != null && @event.Userid != null &&
@@ -121,6 +150,7 @@ namespace LuckyDefuse
                 return HookResult.Continue;
             });
 
+            // Bomb planted successfully
             RegisterEventHandler<EventBombPlanted>((@event, _) =>
             {
                 if (_roundEnded || @event.Userid == null || !@event.Userid.IsValid)
@@ -128,12 +158,14 @@ namespace LuckyDefuse
 
                 _isPlanting = false;
 
+                // Start delayed notification timer
                 _notificationTimer = AddTimer(
                     Config.NotificationDelay,
                     Notify,
                     TimerFlags.STOP_ON_MAPCHANGE
                 );
 
+                // Auto choose wire if planter did not choose
                 AddTimer(5.0f, () =>
                 {
                     if (!_wireChosenManually && _planter != null && _planter.IsValid)
@@ -151,6 +183,7 @@ namespace LuckyDefuse
                 return HookResult.Continue;
             });
 
+            // CT starts defusing
             RegisterEventHandler<EventBombBegindefuse>((@event, _) =>
             {
                 if (@event.Userid == null || !@event.Userid.IsValid)
@@ -161,30 +194,34 @@ namespace LuckyDefuse
                 return HookResult.Continue;
             });
 
+            // CT aborts defuse
             RegisterEventHandler<EventBombAbortdefuse>((_, _) =>
             {
                 _defuserMenu?.Close();
                 return HookResult.Continue;
             });
 
+            // Bomb exploded
             RegisterEventHandler<EventBombExploded>((_, _) =>
             {
                 _planter = null;
                 _defuser = null;
-                _defuserMenu?.Close();
                 _planterMenu?.Close();
+                _defuserMenu?.Close();
                 return HookResult.Continue;
             });
 
+            // Bomb defused normally
             RegisterEventHandler<EventBombDefused>((_, _) =>
             {
                 _planter = null;
                 _defuser = null;
-                _defuserMenu?.Close();
                 _planterMenu?.Close();
+                _defuserMenu?.Close();
                 return HookResult.Continue;
             });
 
+            // Planter selects a wire
             _planterMenu!.OnOptionConfirmed += option =>
             {
                 if (_planter != null && (_isPlanting || !_wireChosenManually))
@@ -199,15 +236,14 @@ namespace LuckyDefuse
                 }
             };
 
+            // Defuser selects a wire
             _defuserMenu!.OnOptionConfirmed += CutWire;
 
+            // Console command to choose a wire
             AddCommand("ld_choose_wire", "choose a wire", (player, info) =>
             {
                 if (player == null)
-                {
-                    Server.PrintToConsole("consoleNotAllowed");
                     return;
-                }
 
                 if (info.ArgCount < 2)
                 {
@@ -253,6 +289,7 @@ namespace LuckyDefuse
             _defuserMenu.Load();
         }
 
+        // Delayed notification for all players
         private void Notify()
         {
             if (_roundEnded || _planter == null || !_planter.IsValid)
@@ -261,6 +298,7 @@ namespace LuckyDefuse
             Server.PrintToChatAll(Prefix(Localizer["notification"].Value));
         }
 
+        // Called when a CT cuts a wire
         private void CutWire(int wire)
         {
             var bomb = Utilities
@@ -268,23 +306,37 @@ namespace LuckyDefuse
                 .FirstOrDefault();
 
             if (bomb == null || !bomb.IsValid || _defuser == null || !_defuser.IsValid)
-            {
-                Server.PrintToChatAll("Huh?");
                 return;
-            }
 
+            // Wrong wire selected
             if (_wire != wire)
             {
                 bomb.C4Blow = 1f;
+
                 Server.PrintToChatAll(
                     Prefix(Localizer["cutWrongWire"].Value
                         .Replace("{player}", _defuser.PlayerName)
                         .Replace("{wire}", $"{_chatColors[wire]}{Localizer[_colorKeys[wire]].Value}"))
                 );
             }
+            // Correct wire selected
             else
             {
+                // Instantly defuse the bomb
                 bomb.DefuseCountDown = 0f;
+
+                // Kill all terrorists
+                foreach (var player in Utilities.GetPlayers())
+                {
+                    if (player.IsValid &&
+                        player.Team == CsTeam.Terrorist &&
+                        player.PawnIsAlive)
+                    {
+                        // Kill player with explosion and force death
+                        player.CommitSuicide(true, true);
+                    }
+                }
+
                 Server.PrintToChatAll(
                     Prefix(Localizer["cutCorrectWire"].Value
                         .Replace("{player}", _defuser.PlayerName)

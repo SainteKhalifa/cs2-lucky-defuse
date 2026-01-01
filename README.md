@@ -1,11 +1,25 @@
 # CounterstrikeSharp - LuckyDefuse - SainteKhalifa Fork
 
-### Bomb Planting & Defuse Menu Changes
+### Bomb Planting & Defuse Menu Changes by SainteKhalifa
 
-- The defuse menu is now displayed immediately when a player begins planting the bomb (triggered on `EventBombBeginPlant`).
-- If the planting is aborted/cancelled, the menu closes instantly and any pending selection is ignored.
-- If the bomb is fully planted without the player having chosen a wire, the game will automatically select a random wire 5 seconds after successful planting and notify players via a chat message.
+- **Localized wire colors**
+  - Wire color names are now fully translated using the language system (`lang/*.json`).
+  - Colors displayed in menus and chat messages adapt automatically to the selected language.
+  - This allows adding new languages without changing any code.
 
+- **Instant Terrorist elimination on successful defuse**
+  - When a Counter-Terrorist cuts the correct wire and defuses the bomb instantly:
+    - The bomb is defused immediately.
+    - All Terrorist players are instantly killed.
+  - This guarantees a clear and decisive round ending.
+
+- **Improved round and state management**
+  - Notification timers are properly stopped at the end of each round to prevent duplicate messages.
+  - Menus are automatically closed when:
+    - The round ends
+    - The bomb explodes
+    - The bomb is defused
+  - Invalid player states are safely ignored to avoid unexpected errors.
 
 This plug-in provides the ability to defuse the bomb by having a 25% chance to cut the correct wire.
 
