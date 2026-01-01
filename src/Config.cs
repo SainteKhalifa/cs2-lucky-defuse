@@ -10,6 +10,9 @@ namespace LuckyDefuse
 
         [JsonPropertyName("notification_delay")]
         public int NotificationDelay { get; set; } = 30;
+
+        [JsonPropertyName("language")]
+        public string Language { get; set; } = "en";  // "en" ou "fr" (par défaut anglais)
     }
 
     public partial class LuckyDefuse : IPluginConfig<PluginConfig>
