@@ -13,14 +13,29 @@ namespace LuckyDefuse
         public override string ModuleAuthor => "Jon-Mailes Graeffe <mail@jonni.it>";
 
         private readonly Color[] _colors =
-        [
-            Color.Red, Color.Green, Color.Blue, Color.Yellow
-        ];
+        {
+            Color.Red,
+            Color.Green,
+            Color.Blue,
+            Color.Yellow
+        };
 
         private readonly char[] _chatColors =
-        [
-            ChatColors.Red, ChatColors.Green, ChatColors.Blue, ChatColors.Yellow
-        ];
+        {
+            ChatColors.Red,
+            ChatColors.Green,
+            ChatColors.Blue,
+            ChatColors.Yellow
+        };
+
+        // 🔑 CLÉS DE TRADUCTION DES COULEURS
+        private readonly string[] _colorKeys =
+        {
+            "color_red",
+            "color_green",
+            "color_blue",
+            "color_yellow"
+        };
 
         private CCSPlayerController? _defuser;
         private CCSPlayerController? _planter;
@@ -33,10 +48,6 @@ namespace LuckyDefuse
         private bool _roundEnded;
         private bool _isPlanting;
 
-        public LuckyDefuse()
-        {
-        }
-
         private string Prefix(string message)
         {
             return $" {ChatColors.Default}{message}";
@@ -48,10 +59,14 @@ namespace LuckyDefuse
             CultureInfo.CurrentCulture = new CultureInfo(culture);
             CultureInfo.CurrentUICulture = new CultureInfo(culture);
 
+            // 🟢 MENU AVEC COULEURS TRADUITES
             _menuOptions = new string[_colors.Length];
             for (int i = 0; i < _colors.Length; ++i)
             {
-                _menuOptions[i] = $"<span color=\"{_colors[i].Name.ToLower(CultureInfo.CurrentCulture)}\">{i + 1}. {_colors[i].Name}</span>";
+                var translatedColor = Localizer[_colorKeys[i]].Value;
+
+                _menuOptions[i] =
+                    $"<span color=\"{_colors[i].Name.ToLowerInvariant()}\">{i + 1}. {translatedColor}</span>";
             }
 
             _planterMenu = new(this, Localizer["planterMenuTitle"].Value, _menuOptions);
@@ -70,8 +85,10 @@ namespace LuckyDefuse
                 _wireChosenManually = false;
                 _isPlanting = false;
                 _roundEnded = true;
-                _notificationTimer?.Kill();  // FIX : Tue le timer notification
+
+                _notificationTimer?.Kill();
                 _notificationTimer = null;
+
                 _defuserMenu?.Close();
                 _planterMenu?.Close();
                 return HookResult.Continue;
@@ -93,7 +110,8 @@ namespace LuckyDefuse
 
             RegisterEventHandler<EventBombAbortplant>((@event, _) =>
             {
-                if (_planter != null && @event.Userid != null && @event.Userid.AuthorizedSteamID == _planter.AuthorizedSteamID)
+                if (_planter != null && @event.Userid != null &&
+                    @event.Userid.AuthorizedSteamID == _planter.AuthorizedSteamID)
                 {
                     _planterMenu?.Close();
                     _isPlanting = false;
@@ -110,8 +128,11 @@ namespace LuckyDefuse
 
                 _isPlanting = false;
 
-                // FIX : Stocke le timer pour pouvoir le tuer plus tard
-                _notificationTimer = AddTimer(Config.NotificationDelay, Notify, TimerFlags.STOP_ON_MAPCHANGE);
+                _notificationTimer = AddTimer(
+                    Config.NotificationDelay,
+                    Notify,
+                    TimerFlags.STOP_ON_MAPCHANGE
+                );
 
                 AddTimer(5.0f, () =>
                 {
@@ -119,8 +140,11 @@ namespace LuckyDefuse
                     {
                         _wire = Random.Shared.Next(_colors.Length);
                         _planterMenu?.Close();
-                        _planter.PrintToChat(Localizer["randomWireChosen"].Value
-                            .Replace("{wire}", $"{_chatColors[_wire]}{_colors[_wire].Name.ToLower(CultureInfo.CurrentCulture)}"));
+
+                        _planter.PrintToChat(
+                            Localizer["randomWireChosen"].Value
+                                .Replace("{wire}", $"{_chatColors[_wire]}{Localizer[_colorKeys[_wire]].Value}")
+                        );
                     }
                 }, TimerFlags.STOP_ON_MAPCHANGE);
 
@@ -167,8 +191,11 @@ namespace LuckyDefuse
                 {
                     _wire = option;
                     _wireChosenManually = true;
-                    _planter.PrintToChat(Localizer["wireChosen"].Value
-                        .Replace("{wire}", $"{_chatColors[option]}{_colors[option].Name.ToLower(CultureInfo.CurrentCulture)}"));
+
+                    _planter.PrintToChat(
+                        Localizer["wireChosen"].Value
+                            .Replace("{wire}", $"{_chatColors[option]}{Localizer[_colorKeys[option]].Value}")
+                    );
                 }
             };
 
@@ -188,7 +215,8 @@ namespace LuckyDefuse
                     return;
                 }
 
-                if (!int.TryParse(info.GetArg(1), out int option) || option <= 0 || option > _colors.Length)
+                if (!int.TryParse(info.GetArg(1), out int option) ||
+                    option <= 0 || option > _colors.Length)
                 {
                     info.ReplyToCommand(Prefix(Localizer["malformedArgument"].Value));
                     return;
@@ -196,16 +224,23 @@ namespace LuckyDefuse
 
                 option--;
 
-                if (_defuser != null && _defuser.IsValid && player.AuthorizedSteamID == _defuser.AuthorizedSteamID)
+                if (_defuser != null && _defuser.IsValid &&
+                    player.AuthorizedSteamID == _defuser.AuthorizedSteamID)
                 {
                     CutWire(option);
                 }
-                else if (_planter != null && player.AuthorizedSteamID == _planter.AuthorizedSteamID && (_isPlanting || !_wireChosenManually))
+                else if (_planter != null &&
+                         player.AuthorizedSteamID == _planter.AuthorizedSteamID &&
+                         (_isPlanting || !_wireChosenManually))
                 {
                     _wire = option;
                     _wireChosenManually = true;
-                    info.ReplyToCommand(Localizer["wireChosen"].Value
-                        .Replace("{wire}", $"{_chatColors[option]}{_colors[option].Name.ToLower(CultureInfo.CurrentCulture)}"));
+
+                    info.ReplyToCommand(
+                        Localizer["wireChosen"].Value
+                            .Replace("{wire}", $"{_chatColors[option]}{Localizer[_colorKeys[option]].Value}")
+                    );
+
                     _planterMenu?.Close();
                 }
                 else
@@ -218,7 +253,6 @@ namespace LuckyDefuse
             _defuserMenu.Load();
         }
 
-        // FIX COMPLÈT : Check + Préfixe
         private void Notify()
         {
             if (_roundEnded || _planter == null || !_planter.IsValid)
@@ -229,8 +263,9 @@ namespace LuckyDefuse
 
         private void CutWire(int wire)
         {
-            IEnumerable<CPlantedC4> bombs = Utilities.FindAllEntitiesByDesignerName<CPlantedC4>("planted_c4");
-            CPlantedC4? bomb = bombs.FirstOrDefault();
+            var bomb = Utilities
+                .FindAllEntitiesByDesignerName<CPlantedC4>("planted_c4")
+                .FirstOrDefault();
 
             if (bomb == null || !bomb.IsValid || _defuser == null || !_defuser.IsValid)
             {
@@ -241,16 +276,20 @@ namespace LuckyDefuse
             if (_wire != wire)
             {
                 bomb.C4Blow = 1f;
-                Server.PrintToChatAll(Prefix(Localizer["cutWrongWire"].Value
-                    .Replace("{player}", _defuser.PlayerName)
-                    .Replace("{wire}", $"{_chatColors[wire]}{_colors[wire].Name.ToLower(CultureInfo.CurrentCulture)}")));
+                Server.PrintToChatAll(
+                    Prefix(Localizer["cutWrongWire"].Value
+                        .Replace("{player}", _defuser.PlayerName)
+                        .Replace("{wire}", $"{_chatColors[wire]}{Localizer[_colorKeys[wire]].Value}"))
+                );
             }
             else
             {
                 bomb.DefuseCountDown = 0f;
-                Server.PrintToChatAll(Prefix(Localizer["cutCorrectWire"].Value
-                    .Replace("{player}", _defuser.PlayerName)
-                    .Replace("{wire}", $"{_chatColors[wire]}{_colors[wire].Name.ToLower(CultureInfo.CurrentCulture)}")));
+                Server.PrintToChatAll(
+                    Prefix(Localizer["cutCorrectWire"].Value
+                        .Replace("{player}", _defuser.PlayerName)
+                        .Replace("{wire}", $"{_chatColors[wire]}{Localizer[_colorKeys[wire]].Value}"))
+                );
             }
         }
     }

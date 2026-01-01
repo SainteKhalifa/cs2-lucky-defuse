@@ -1,4 +1,8 @@
 {
+  "color_red": "Rouge",
+  "color_blue": "Bleu",
+  "color_yellow": "Jaune",
+  "color_green": "Vert",
   "planterMenuTitle": "Choisissez le fil piégé :",
   "defuserMenuTitle": "Tente ta chance ! Coupe un fil :",
   "wireChosen": " {magenta}>> {default}Vous avez choisi le fil {wire}{default}. Les terroristes peuvent désamorcer la bombe instantanément en le coupant. Chuuuut, ne leur dites pas !",

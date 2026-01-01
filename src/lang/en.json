@@ -1,4 +1,8 @@
 {
+  "color_red": "Red",
+  "color_blue": "Blue",
+  "color_yellow": "Yellow",
+  "color_green": "Green",
   "planterMenuTitle": "Choose the hot wire:",
   "defuserMenuTitle": "Test your luck and cut a wire:",
   "wireChosen": " {magenta}>> {default}You chose the {wire}{default} wire. The terrorists can defuse the bomb instantly if they cut it. Psssssht, don't tell them!",
