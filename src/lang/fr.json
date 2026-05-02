@@ -12,5 +12,8 @@
   "notification": " {magenta}[Lucky Defuse] {default}La bombe tic-tac ! Soyez héroïque et essayez de couper un fil — si vous choisissez le bon, vous désamorcez la bombe instantanément !",
   "missingArgument": "[Lucky Defuse] Vous devez spécifier le numéro du fil en argument !",
   "malformedArgument": "[Lucky Defuse] Le premier argument doit être le numéro du fil (1 = Rouge, 2 = Vert, 3 = Bleu, 4 = Jaune) !",
-  "noBomb": " {magenta}[Lucky Defuse] {default}Il n'y a pas de bombe. Attendez que la bombe soit plantée si vous êtes T, ou en cours de désamorçage si vous êtes CT."
+  "noBomb": " {magenta}[Lucky Defuse] {default}Il n'y a pas de bombe. Attendez que la bombe soit plantée si vous êtes T, ou en cours de désamorçage si vous êtes CT.",
+  "statsRoundHeader": " {magenta}[Lucky Defuse] {default}Stats du round :",
+  "statsDefuser": " {magenta}>>{default} Défuseur {player} | Bons fils : {correct} | Mauvais fils : {wrong} | Désamorçages normaux : {normal}",
+  "statsPlanter": " {magenta}>>{default} Planteur {player} | Bombes plantées : {planted} | Fils manuels : {manual} | Fils aléatoires : {random}"
 }

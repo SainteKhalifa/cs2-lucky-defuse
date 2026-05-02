@@ -16,7 +16,9 @@
             <PrivateAssets>none</PrivateAssets>
             <ExcludeAssets>runtime</ExcludeAssets>
             <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-       </PackageReference>
+        </PackageReference>
+        <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="8.0.0" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.6" />
     </ItemGroup>
 
     <ItemGroup>

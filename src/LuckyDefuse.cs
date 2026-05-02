@@ -68,6 +68,12 @@ namespace LuckyDefuse
         // Indicates if bomb is currently being planted
         private bool _isPlanting;
 
+        // SQLite database for persistent stats
+        private Database? _db;
+
+        // Indicates if the defuse was triggered by cutting the correct wire
+        private bool _wasWireDefuse;
+
         // Adds default chat prefix
         private string Prefix(string message)
         {
@@ -76,6 +82,9 @@ namespace LuckyDefuse
 
         public override void Load(bool hotReload)
         {
+            var dbPath = Path.Combine(ModuleDirectory, "stats.db");
+            _db = new Database(dbPath);
+
             // Set culture based on config language
             var culture = Config.Language.ToLowerInvariant() == "fr" ? "fr-FR" : "en-US";
             CultureInfo.CurrentCulture = new CultureInfo(culture);
@@ -109,6 +118,7 @@ namespace LuckyDefuse
                 _wireChosenManually = false;
                 _isPlanting = false;
                 _roundEnded = true;
+                _wasWireDefuse = false;
 
                 // Kill pending notification timer
                 _notificationTimer?.Kill();
@@ -204,6 +214,7 @@ namespace LuckyDefuse
             // Bomb exploded
             RegisterEventHandler<EventBombExploded>((_, _) =>
             {
+                SaveAndShowStats(normalDefuse: false);
                 _planter = null;
                 _defuser = null;
                 _planterMenu?.Close();
@@ -225,6 +236,7 @@ namespace LuckyDefuse
                     }
                 }
 
+                SaveAndShowStats(normalDefuse: !_wasWireDefuse);
                 _planter = null;
                 _defuser = null;
                 _planterMenu?.Close();
@@ -309,6 +321,61 @@ namespace LuckyDefuse
             Server.PrintToChatAll(Prefix(Localizer["notification"].Value));
         }
 
+        public override void Unload(bool hotReload)
+        {
+            _db?.Dispose();
+        }
+
+        private void SaveAndShowStats(bool normalDefuse)
+        {
+            var lines = new List<string>();
+
+            if (_defuser != null && _defuser.IsValid &&
+                _defuser.AuthorizedSteamID != null)
+            {
+                var steamId = _defuser.AuthorizedSteamID.SteamId64.ToString();
+                var name = _defuser.PlayerName;
+                bool correctWire = _wasWireDefuse;
+
+                _db?.UpdateDefuser(steamId, name, correctWire, normalDefuse);
+
+                var stats = _db?.GetStats(steamId);
+                if (stats != null)
+                {
+                    lines.Add(Localizer["statsDefuser"].Value
+                        .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
+                        .Replace("{correct}", stats.CorrectWires.ToString())
+                        .Replace("{wrong}", stats.WrongWires.ToString())
+                        .Replace("{normal}", stats.NormalDefuses.ToString()));
+                }
+            }
+
+            if (_planter != null && _planter.IsValid &&
+                _planter.AuthorizedSteamID != null)
+            {
+                var steamId = _planter.AuthorizedSteamID.SteamId64.ToString();
+                var name = _planter.PlayerName;
+
+                _db?.UpdatePlanter(steamId, name, _wireChosenManually);
+
+                var stats = _db?.GetStats(steamId);
+                if (stats != null)
+                {
+                    lines.Add(Localizer["statsPlanter"].Value
+                        .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
+                        .Replace("{planted}", stats.BombsPlanted.ToString())
+                        .Replace("{manual}", stats.WiresChosenManually.ToString())
+                        .Replace("{random}", stats.WiresChosenRandomly.ToString()));
+                }
+            }
+
+            if (lines.Count == 0) return;
+
+            Server.PrintToChatAll(Prefix(Localizer["statsRoundHeader"].Value));
+            foreach (var line in lines)
+                Server.PrintToChatAll(Prefix(line));
+        }
+
         // Called when a CT cuts a wire
         private void CutWire(int wire)
         {
@@ -353,6 +420,9 @@ namespace LuckyDefuse
                         .Replace("{player}", _defuser.PlayerName)
                         .Replace("{wire}", $"{_chatColors[wire]}{Localizer[_colorKeys[wire]].Value}"))
                 );
+
+                // Stats will be saved via EventBombDefused, flag as wire defuse
+                _wasWireDefuse = true;
             }
         }
     }

@@ -21,7 +21,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Get repository name
       run: echo "REPOSITORY_NAME=$(basename ${{ github.repository }})" >> $GITHUB_ENV
@@ -46,7 +46,7 @@ jobs:
 
     - name: Setup .NET
       if: env.new_version == 'true'
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v4.3.1
       with:
         dotnet-version: '8.0.x'
 
@@ -82,7 +82,7 @@ jobs:
 
     - name: Create GitHub release
       if: env.new_version == 'true'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v2.3.2
       with:
         tag_name: ${{ env.version }}
         name: ${{ env.version }}
