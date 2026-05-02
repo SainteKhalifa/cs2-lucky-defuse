@@ -11,6 +11,6 @@
   "cutCorrectWire": " {magenta}[Lucky Defuse] {default}Ouf ! Le joueur {lime}{player}{default} a coupé le fil {wire}{default} et a sauvé la situation.",
   "notification": " {magenta}[Lucky Defuse] {default}La bombe tic-tac ! Soyez héroïque et essayez de couper un fil — si vous choisissez le bon, vous désamorcez la bombe instantanément !",
   "missingArgument": "[Lucky Defuse] Vous devez spécifier le numéro du fil en argument !",
-  "malformedArgument": "[Lucky Defuse] Le premier argument doit être un numéro de fil entre 1 et 4 !",
+  "malformedArgument": "[Lucky Defuse] Le premier argument doit être le numéro du fil (1 = Rouge, 2 = Vert, 3 = Bleu, 4 = Jaune) !",
   "noBomb": " {magenta}[Lucky Defuse] {default}Il n'y a pas de bombe. Attendez que la bombe soit plantée si vous êtes T, ou en cours de désamorçage si vous êtes CT."
 }
