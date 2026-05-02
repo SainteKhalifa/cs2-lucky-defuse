@@ -212,8 +212,19 @@ namespace LuckyDefuse
             });
 
             // Bomb defused normally
-            RegisterEventHandler<EventBombDefused>((_, _) =>
+            RegisterEventHandler<EventBombDefused>((@event, _) =>
             {
+                // Kill all terrorists on normal defuse too
+                foreach (var player in Utilities.GetPlayers())
+                {
+                    if (player.IsValid &&
+                        player.Team == CsTeam.Terrorist &&
+                        player.PawnIsAlive)
+                    {
+                        player.CommitSuicide(true, true);
+                    }
+                }
+
                 _planter = null;
                 _defuser = null;
                 _planterMenu?.Close();
