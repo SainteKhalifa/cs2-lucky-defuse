@@ -62,6 +62,7 @@ Le fichier de configuration est généré automatiquement dans :
 
 ```json
 {
+  "planter_menu_duration": 10,
   "notification_delay": 30,
   "language": "fr"
 }
@@ -69,6 +70,7 @@ Le fichier de configuration est généré automatiquement dans :
 
 | Paramètre | Description | Défaut |
 |---|---|---|
+| `planter_menu_duration` | Délai en secondes avant la fermeture automatique du menu du planteur si aucun fil n'est choisi | `10` |
 | `notification_delay` | Délai en secondes avant le message d'info en chat après la pose | `30` |
 | `language` | Langue des messages (`en` ou `fr`) | `en` |
 
@@ -146,6 +148,7 @@ The config file is auto-generated at:
 
 ```json
 {
+  "planter_menu_duration": 10,
   "notification_delay": 30,
   "language": "en"
 }
@@ -153,6 +156,7 @@ The config file is auto-generated at:
 
 | Parameter | Description | Default |
 |---|---|---|
+| `planter_menu_duration` | Delay in seconds before the planter menu auto-closes if no wire is chosen | `10` |
 | `notification_delay` | Delay in seconds before the info message in chat after bomb plant | `30` |
 | `language` | Message language (`en` or `fr`) | `en` |
 

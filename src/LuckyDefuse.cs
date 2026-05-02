@@ -176,7 +176,7 @@ namespace LuckyDefuse
                 );
 
                 // Auto choose wire if planter did not choose
-                AddTimer(5.0f, () =>
+                AddTimer(Config.PlanterMenuDuration, () =>
                 {
                     if (!_wireChosenManually && _planter != null && _planter.IsValid)
                     {
