@@ -88,7 +88,17 @@ namespace LuckyDefuse
 
         public override void Load(bool hotReload)
         {
-            var dbPath = Path.Combine(ModuleDirectory, "stats.db");
+            // Store the database next to the plugin config so it survives plugin updates
+            var configDir = Path.GetFullPath(
+                Path.Combine(ModuleDirectory, "..", "..", "configs", "plugins", "LuckyDefuse"));
+            Directory.CreateDirectory(configDir);
+            var dbPath = Path.Combine(configDir, "stats.db");
+
+            // Migrate the database from the old location (plugin folder, wiped on updates)
+            var oldDbPath = Path.Combine(ModuleDirectory, "stats.db");
+            if (File.Exists(oldDbPath) && !File.Exists(dbPath))
+                File.Move(oldDbPath, dbPath);
+
             _db = new Database(dbPath);
 
             // Set culture based on config language

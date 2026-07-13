@@ -31,7 +31,7 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 - Les stats sont affichées dans le chat à la fin de chaque round (bombe désamorcée ou explosée)
 - Stats des CT : bons fils coupés, mauvais fils coupés, désamorçages normaux
 - Stats des T : bombes plantées, fils choisis manuellement, fils tirés aléatoirement
-- Fichier de base de données : `addons/counterstrikesharp/plugins/LuckyDefuse/stats.db`
+- Fichier de base de données : `addons/counterstrikesharp/configs/plugins/LuckyDefuse/stats.db` (survit aux mises à jour du plugin ; une ancienne base présente dans le dossier du plugin est migrée automatiquement)
 
 **Commandes**
 
@@ -132,7 +132,7 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 - Stats are displayed in chat at the end of each round (bomb defused or exploded)
 - CT stats: correct wires cut, wrong wires cut, normal defuses
 - T stats: bombs planted, manually chosen wires, randomly chosen wires
-- Database file: `addons/counterstrikesharp/plugins/LuckyDefuse/stats.db`
+- Database file: `addons/counterstrikesharp/configs/plugins/LuckyDefuse/stats.db` (survives plugin updates; an old database found in the plugin folder is migrated automatically)
 
 **Commands**
 
