@@ -7,13 +7,12 @@ env:
   REPOSITORY_FOLDER: "src"
   PLUGIN_NAME: "LuckyDefuse"
 
+# Triggered by pushing a tag (created manually, e.g. in SourceTree).
+# The workflow never creates tags itself.
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'src/Version.cs'
-  workflow_dispatch:
+    tags:
+      - '*'
 
 jobs:
   release:
@@ -22,70 +21,60 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4.2.2
+      with:
+        fetch-depth: 0
 
     - name: Get repository name
       run: echo "REPOSITORY_NAME=$(basename ${{ github.repository }})" >> $GITHUB_ENV
 
-    - name: Get project version from Version.cs
+    - name: Check Version.cs matches the tag
       run: |
         version=$(grep -oP '(?<=ModuleVersion => ")[^"]*' ${{ env.REPOSITORY_FOLDER }}/Version.cs)
-        echo "version=$version" >> $GITHUB_ENV
-
-    - name: Get latest release version
-      run: |
-        latest_release=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name || echo "")
-        echo "latest_release=$latest_release" >> $GITHUB_ENV
-
-    - name: Compare versions
-      run: |
-        if [ "${{ env.version }}" != "${{ env.latest_release }}" ]; then
-          echo "new_version=true" >> $GITHUB_ENV
-        else
-          echo "new_version=false" >> $GITHUB_ENV
+        if [ "$version" != "${{ github.ref_name }}" ]; then
+          echo "::error::Version.cs ($version) does not match the tag (${{ github.ref_name }}). Bump Version.cs before tagging."
+          exit 1
         fi
 
     - name: Setup .NET
-      if: env.new_version == 'true'
       uses: actions/setup-dotnet@v4.3.1
       with:
         dotnet-version: '10.0.x'
 
     - name: Restore dependencies
-      if: env.new_version == 'true'
       run: dotnet restore
 
     - name: Build plugin
-      if: env.new_version == 'true'
       run: dotnet publish -c Release
 
     - name: Prepare plugin info file
-      if: env.new_version == 'true'
       run: |
         INFO_PATH="${{ env.REPOSITORY_FOLDER }}/bin/Release/net10.0/publish/${{ env.PLUGIN_NAME }}.info"
-        echo "version: ${{ env.version }}" > "$INFO_PATH"
+        echo "version: ${{ github.ref_name }}" > "$INFO_PATH"
         echo "repository: https://github.com/${{ github.repository }}" >> "$INFO_PATH"
 
     - name: Package release
-      if: env.new_version == 'true'
       run: |
         cd ${{ env.REPOSITORY_FOLDER }}/bin/Release/net10.0
         mv publish ${{ env.PLUGIN_NAME }}
-        zip -r $GITHUB_WORKSPACE/${{ env.REPOSITORY_NAME }}-${{ env.version }}.zip ${{ env.PLUGIN_NAME }}
+        zip -r $GITHUB_WORKSPACE/${{ env.REPOSITORY_NAME }}-${{ github.ref_name }}.zip ${{ env.PLUGIN_NAME }}
 
     - name: Generate release notes
-      if: env.new_version == 'true'
       run: |
-        notes=$(git log --pretty=format:"- %s (%an)" $(git describe --tags --abbrev=0)..HEAD 2>/dev/null || git log --pretty=format:"- %s (%an)")
+        prev=$(git describe --tags --abbrev=0 "${{ github.ref_name }}^" 2>/dev/null || echo "")
+        if [ -n "$prev" ]; then
+          notes=$(git log --pretty=format:"- %s (%an)" "$prev..${{ github.ref_name }}")
+        else
+          notes=$(git log --pretty=format:"- %s (%an)" "${{ github.ref_name }}")
+        fi
         echo "release_notes<<EOF" >> $GITHUB_ENV
         echo "$notes" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
 
     - name: Create GitHub release
-      if: env.new_version == 'true'
       uses: softprops/action-gh-release@v2.3.2
       with:
-        tag_name: ${{ env.version }}
-        name: ${{ env.version }}
+        tag_name: ${{ github.ref_name }}
+        name: ${{ github.ref_name }}
         body: ${{ env.release_notes }}
         files: |
-          ${{ env.REPOSITORY_NAME }}-${{ env.version }}.zip
+          ${{ env.REPOSITORY_NAME }}-${{ github.ref_name }}.zip
