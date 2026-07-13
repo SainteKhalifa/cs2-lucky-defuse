@@ -15,5 +15,9 @@
   "noBomb": " {magenta}[Lucky Defuse] {default}Il n'y a pas de bombe. Attendez que la bombe soit plantée si vous êtes T, ou en cours de désamorçage si vous êtes CT.",
   "statsRoundHeader": " {magenta}[Lucky Defuse] {default}Stats du round :",
   "statsDefuser": " {magenta}>>{default} Défuseur {player} | Bons fils : {correct} | Mauvais fils : {wrong} | Désamorçages normaux : {normal}",
-  "statsPlanter": " {magenta}>>{default} Planteur {player} | Bombes plantées : {planted} | Fils manuels : {manual} | Fils aléatoires : {random}"
+  "statsPlanter": " {magenta}>>{default} Planteur {player} | Bombes plantées : {planted} | Fils manuels : {manual} | Fils aléatoires : {random}",
+  "statsSelfHeader": " {magenta}[Lucky Defuse] {default}Vos stats globales :",
+  "noStats": " {magenta}[Lucky Defuse] {default}Aucune stat enregistrée pour le moment.",
+  "topHeader": " {magenta}[Lucky Defuse] {default}Top 5 des défuseurs :",
+  "topLine": " {magenta}{rank}.{default} {player} | Bons fils : {correct} | Mauvais fils : {wrong} | Désamorçages normaux : {normal}"
 }

@@ -13,6 +13,12 @@ namespace LuckyDefuse
 
         [JsonPropertyName("language")]
         public string Language { get; set; } = "en";  // "en" ou "fr" (par défaut anglais)
+
+        [JsonPropertyName("kill_terrorists_on_defuse")]
+        public bool KillTerroristsOnDefuse { get; set; } = true;
+
+        [JsonPropertyName("show_round_stats")]
+        public bool ShowRoundStats { get; set; } = true;
     }
 
     public partial class LuckyDefuse : IPluginConfig<PluginConfig>

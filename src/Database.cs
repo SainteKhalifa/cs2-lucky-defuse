@@ -84,23 +84,49 @@ namespace LuckyDefuse
             cmd.ExecuteNonQuery();
         }
 
+        private const string StatsColumns =
+            "last_name, correct_wires, wrong_wires, normal_defuses, bombs_planted, wires_chosen_manually, wires_chosen_randomly";
+
+        private static PlayerStats ReadStats(SqliteDataReader reader)
+        {
+            return new PlayerStats
+            {
+                LastName             = reader.GetString(0),
+                CorrectWires         = reader.GetInt32(1),
+                WrongWires           = reader.GetInt32(2),
+                NormalDefuses        = reader.GetInt32(3),
+                BombsPlanted         = reader.GetInt32(4),
+                WiresChosenManually  = reader.GetInt32(5),
+                WiresChosenRandomly  = reader.GetInt32(6)
+            };
+        }
+
         public PlayerStats? GetStats(string steamId)
         {
             using var cmd = _connection.CreateCommand();
-            cmd.CommandText = "SELECT * FROM player_stats WHERE steam_id = @steamId";
+            cmd.CommandText = $"SELECT {StatsColumns} FROM player_stats WHERE steam_id = @steamId";
             cmd.Parameters.AddWithValue("@steamId", steamId);
             using var reader = cmd.ExecuteReader();
-            if (!reader.Read()) return null;
-            return new PlayerStats
+            return reader.Read() ? ReadStats(reader) : null;
+        }
+
+        public List<PlayerStats> GetTopDefusers(int limit)
+        {
+            var result = new List<PlayerStats>();
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = $"""
+                SELECT {StatsColumns} FROM player_stats
+                WHERE correct_wires + wrong_wires + normal_defuses > 0
+                ORDER BY correct_wires DESC, wrong_wires ASC
+                LIMIT @limit
+                """;
+            cmd.Parameters.AddWithValue("@limit", limit);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
             {
-                LastName             = reader.GetString(1),
-                CorrectWires         = reader.GetInt32(2),
-                WrongWires           = reader.GetInt32(3),
-                NormalDefuses        = reader.GetInt32(4),
-                BombsPlanted         = reader.GetInt32(5),
-                WiresChosenManually  = reader.GetInt32(6),
-                WiresChosenRandomly  = reader.GetInt32(7)
-            };
+                result.Add(ReadStats(reader));
+            }
+            return result;
         }
 
         public void Dispose()

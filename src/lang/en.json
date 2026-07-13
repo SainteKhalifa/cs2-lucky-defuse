@@ -15,5 +15,9 @@
   "noBomb": " {magenta}[Lucky Defuse]  {default}There is no bomb. Wait for the bomb to be planted if you're T, and the bomb to be defused if you're CT.",
   "statsRoundHeader": " {magenta}[Lucky Defuse] {default}Round stats:",
   "statsDefuser": " {magenta}>>{default} Defuser {player} | Correct wires: {correct} | Wrong wires: {wrong} | Normal defuses: {normal}",
-  "statsPlanter": " {magenta}>>{default} Planter {player} | Bombs planted: {planted} | Manual wires: {manual} | Random wires: {random}"
+  "statsPlanter": " {magenta}>>{default} Planter {player} | Bombs planted: {planted} | Manual wires: {manual} | Random wires: {random}",
+  "statsSelfHeader": " {magenta}[Lucky Defuse] {default}Your all-time stats:",
+  "noStats": " {magenta}[Lucky Defuse] {default}No stats recorded yet.",
+  "topHeader": " {magenta}[Lucky Defuse] {default}Top 5 defusers:",
+  "topLine": " {magenta}{rank}.{default} {player} | Correct wires: {correct} | Wrong wires: {wrong} | Normal defuses: {normal}"
 }

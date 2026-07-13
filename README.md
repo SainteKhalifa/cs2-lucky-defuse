@@ -33,6 +33,14 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 - Stats des T : bombes plantées, fils choisis manuellement, fils tirés aléatoirement
 - Fichier de base de données : `addons/counterstrikesharp/plugins/LuckyDefuse/stats.db`
 
+**Commandes**
+
+| Commande | Description |
+|---|---|
+| `!ldstats` | Affiche vos statistiques globales (défuseur + planteur) |
+| `!ldtop` | Affiche le top 5 des meilleurs défuseurs du serveur |
+| `ld_choose_wire <1-4>` | Choisir un fil via la console (alternative au menu) |
+
 **Localisation**
 - Support complet du français et de l'anglais
 - Couleurs des fils traduites dans les menus et messages chat
@@ -42,14 +50,17 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 
 | Fonctionnalité | Projet source | Ce fork |
 |---|---|---|
-| Tuer les T sur désamorçage par fil | Oui | Oui |
-| Tuer les T sur désamorçage normal | Non | Oui |
+| Tuer les T sur désamorçage par fil | Oui | Oui (désactivable) |
+| Tuer les T sur désamorçage normal | Non | Oui (désactivable) |
 | Statistiques persistantes SQLite | Non | Oui |
-| Affichage stats en fin de round | Non | Oui |
+| Affichage stats en fin de round | Non | Oui (désactivable) |
+| Commandes `!ldstats` / `!ldtop` | Non | Oui |
 | Traduction des couleurs de fils | Non | Oui |
 | Support Linux sans dépendance système | Non | Oui |
 
 ### Installation
+
+> **Prérequis :** une version récente de [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) basée sur .NET 10.
 
 1. Télécharger la dernière release depuis la [page des releases GitHub](https://github.com/SainteKhalifa/cs2-lucky-defuse/releases/)
 2. Déposer le dossier `LuckyDefuse` dans `/addons/counterstrikesharp/plugins/`
@@ -64,7 +75,9 @@ Le fichier de configuration est généré automatiquement dans :
 {
   "planter_menu_duration": 10,
   "notification_delay": 30,
-  "language": "fr"
+  "language": "fr",
+  "kill_terrorists_on_defuse": true,
+  "show_round_stats": true
 }
 ```
 
@@ -73,6 +86,8 @@ Le fichier de configuration est généré automatiquement dans :
 | `planter_menu_duration` | Délai en secondes avant la fermeture automatique du menu du planteur si aucun fil n'est choisi | `10` |
 | `notification_delay` | Délai en secondes avant le message d'info en chat après la pose | `30` |
 | `language` | Langue des messages (`en` ou `fr`) | `en` |
+| `kill_terrorists_on_defuse` | Tuer tous les T encore en vie quand la bombe est désamorcée | `true` |
+| `show_round_stats` | Afficher les stats dans le chat en fin de round | `true` |
 
 ### Compiler soi-même
 
@@ -119,6 +134,14 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 - T stats: bombs planted, manually chosen wires, randomly chosen wires
 - Database file: `addons/counterstrikesharp/plugins/LuckyDefuse/stats.db`
 
+**Commands**
+
+| Command | Description |
+|---|---|
+| `!ldstats` | Show your all-time stats (defuser + planter) |
+| `!ldtop` | Show the server's top 5 defusers |
+| `ld_choose_wire <1-4>` | Choose a wire via console (menu alternative) |
+
 **Localization**
 - Full French and English support
 - Wire color names translated in menus and chat messages
@@ -128,14 +151,17 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 
 | Feature | Original | This fork |
 |---|---|---|
-| Kill Ts on wire defuse | Yes | Yes |
-| Kill Ts on normal defuse | No | Yes |
+| Kill Ts on wire defuse | Yes | Yes (toggleable) |
+| Kill Ts on normal defuse | No | Yes (toggleable) |
 | Persistent SQLite statistics | No | Yes |
-| Stats display at round end | No | Yes |
+| Stats display at round end | No | Yes (toggleable) |
+| `!ldstats` / `!ldtop` commands | No | Yes |
 | Translated wire colors | No | Yes |
 | Linux support without system dependency | No | Yes |
 
 ### Installation
+
+> **Requirement:** a recent [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) version based on .NET 10.
 
 1. Download the latest release from the [GitHub releases page](https://github.com/SainteKhalifa/cs2-lucky-defuse/releases/)
 2. Place the `LuckyDefuse` folder into `/addons/counterstrikesharp/plugins/`
@@ -150,7 +176,9 @@ The config file is auto-generated at:
 {
   "planter_menu_duration": 10,
   "notification_delay": 30,
-  "language": "en"
+  "language": "en",
+  "kill_terrorists_on_defuse": true,
+  "show_round_stats": true
 }
 ```
 
@@ -159,6 +187,8 @@ The config file is auto-generated at:
 | `planter_menu_duration` | Delay in seconds before the planter menu auto-closes if no wire is chosen | `10` |
 | `notification_delay` | Delay in seconds before the info message in chat after bomb plant | `30` |
 | `language` | Message language (`en` or `fr`) | `en` |
+| `kill_terrorists_on_defuse` | Kill all living Ts when the bomb gets defused | `true` |
+| `show_round_stats` | Show stats in chat at round end | `true` |
 
 ### Build from source
 

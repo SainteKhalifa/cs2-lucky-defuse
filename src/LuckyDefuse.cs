@@ -74,6 +74,12 @@ namespace LuckyDefuse
         // Indicates if the defuse was triggered by cutting the correct wire
         private bool _wasWireDefuse;
 
+        // Indicates if the defuser cut a wrong wire (bomb blew up because of it)
+        private bool _wrongWireCut;
+
+        // Timer used for auto-choosing a wire if planter doesn't pick one
+        private CounterStrikeSharp.API.Modules.Timers.Timer? _autoWireTimer;
+
         // Adds default chat prefix
         private string Prefix(string message)
         {
@@ -119,10 +125,13 @@ namespace LuckyDefuse
                 _isPlanting = false;
                 _roundEnded = true;
                 _wasWireDefuse = false;
+                _wrongWireCut = false;
 
-                // Kill pending notification timer
+                // Kill pending timers
                 _notificationTimer?.Kill();
                 _notificationTimer = null;
+                _autoWireTimer?.Kill();
+                _autoWireTimer = null;
 
                 _planterMenu?.Close();
                 _defuserMenu?.Close();
@@ -176,7 +185,7 @@ namespace LuckyDefuse
                 );
 
                 // Auto choose wire if planter did not choose
-                AddTimer(Config.PlanterMenuDuration, () =>
+                _autoWireTimer = AddTimer(Config.PlanterMenuDuration, () =>
                 {
                     if (!_wireChosenManually && _planter != null && _planter.IsValid)
                     {
@@ -214,7 +223,7 @@ namespace LuckyDefuse
             // Bomb exploded
             RegisterEventHandler<EventBombExploded>((_, _) =>
             {
-                SaveAndShowStats(normalDefuse: false);
+                SaveAndShowStats(bombDefused: false);
                 _planter = null;
                 _defuser = null;
                 _planterMenu?.Close();
@@ -223,20 +232,13 @@ namespace LuckyDefuse
             });
 
             // Bomb defused normally
-            RegisterEventHandler<EventBombDefused>((@event, _) =>
+            RegisterEventHandler<EventBombDefused>((_, _) =>
             {
                 // Kill all terrorists on normal defuse too
-                foreach (var player in Utilities.GetPlayers())
-                {
-                    if (player.IsValid &&
-                        player.Team == CsTeam.Terrorist &&
-                        player.PawnIsAlive)
-                    {
-                        player.CommitSuicide(true, true);
-                    }
-                }
+                if (Config.KillTerroristsOnDefuse)
+                    KillAllTerrorists();
 
-                SaveAndShowStats(normalDefuse: !_wasWireDefuse);
+                SaveAndShowStats(bombDefused: true);
                 _planter = null;
                 _defuser = null;
                 _planterMenu?.Close();
@@ -308,6 +310,49 @@ namespace LuckyDefuse
                 }
             });
 
+            // Chat command !ldstats - show your own all-time stats
+            AddCommand("css_ldstats", "show your Lucky Defuse stats", (player, info) =>
+            {
+                if (player == null || player.AuthorizedSteamID == null)
+                    return;
+
+                var stats = _db?.GetStats(player.AuthorizedSteamID.SteamId64.ToString());
+                if (stats == null)
+                {
+                    info.ReplyToCommand(Prefix(Localizer["noStats"].Value));
+                    return;
+                }
+
+                info.ReplyToCommand(Prefix(Localizer["statsSelfHeader"].Value));
+                info.ReplyToCommand(Prefix(FormatDefuserLine(player.PlayerName, stats)));
+                info.ReplyToCommand(Prefix(FormatPlanterLine(player.PlayerName, stats)));
+            });
+
+            // Chat command !ldtop - show top 5 defusers
+            AddCommand("css_ldtop", "show the top 5 Lucky Defuse defusers", (player, info) =>
+            {
+                if (player == null)
+                    return;
+
+                var top = _db?.GetTopDefusers(5);
+                if (top == null || top.Count == 0)
+                {
+                    info.ReplyToCommand(Prefix(Localizer["noStats"].Value));
+                    return;
+                }
+
+                info.ReplyToCommand(Prefix(Localizer["topHeader"].Value));
+                for (int i = 0; i < top.Count; ++i)
+                {
+                    info.ReplyToCommand(Prefix(Localizer["topLine"].Value
+                        .Replace("{rank}", (i + 1).ToString())
+                        .Replace("{player}", $"{ChatColors.Lime}{top[i].LastName}{ChatColors.Default}")
+                        .Replace("{correct}", top[i].CorrectWires.ToString())
+                        .Replace("{wrong}", top[i].WrongWires.ToString())
+                        .Replace("{normal}", top[i].NormalDefuses.ToString())));
+                }
+            });
+
             _planterMenu.Load();
             _defuserMenu.Load();
         }
@@ -326,28 +371,46 @@ namespace LuckyDefuse
             _db?.Dispose();
         }
 
-        private void SaveAndShowStats(bool normalDefuse)
+        // Format the defuser stats line for chat
+        private string FormatDefuserLine(string name, PlayerStats stats)
+        {
+            return Localizer["statsDefuser"].Value
+                .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
+                .Replace("{correct}", stats.CorrectWires.ToString())
+                .Replace("{wrong}", stats.WrongWires.ToString())
+                .Replace("{normal}", stats.NormalDefuses.ToString());
+        }
+
+        // Format the planter stats line for chat
+        private string FormatPlanterLine(string name, PlayerStats stats)
+        {
+            return Localizer["statsPlanter"].Value
+                .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
+                .Replace("{planted}", stats.BombsPlanted.ToString())
+                .Replace("{manual}", stats.WiresChosenManually.ToString())
+                .Replace("{random}", stats.WiresChosenRandomly.ToString());
+        }
+
+        private void SaveAndShowStats(bool bombDefused)
         {
             var lines = new List<string>();
 
+            // Only credit the defuser if he actually defused the bomb,
+            // or actually cut a wrong wire (not just "was defusing when it blew up")
             if (_defuser != null && _defuser.IsValid &&
-                _defuser.AuthorizedSteamID != null)
+                _defuser.AuthorizedSteamID != null &&
+                (bombDefused || _wrongWireCut))
             {
                 var steamId = _defuser.AuthorizedSteamID.SteamId64.ToString();
                 var name = _defuser.PlayerName;
-                bool correctWire = _wasWireDefuse;
 
-                _db?.UpdateDefuser(steamId, name, correctWire, normalDefuse);
+                _db?.UpdateDefuser(steamId, name,
+                    correctWire: bombDefused && _wasWireDefuse,
+                    normalDefuse: bombDefused && !_wasWireDefuse);
 
                 var stats = _db?.GetStats(steamId);
                 if (stats != null)
-                {
-                    lines.Add(Localizer["statsDefuser"].Value
-                        .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
-                        .Replace("{correct}", stats.CorrectWires.ToString())
-                        .Replace("{wrong}", stats.WrongWires.ToString())
-                        .Replace("{normal}", stats.NormalDefuses.ToString()));
-                }
+                    lines.Add(FormatDefuserLine(name, stats));
             }
 
             if (_planter != null && _planter.IsValid &&
@@ -360,16 +423,10 @@ namespace LuckyDefuse
 
                 var stats = _db?.GetStats(steamId);
                 if (stats != null)
-                {
-                    lines.Add(Localizer["statsPlanter"].Value
-                        .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
-                        .Replace("{planted}", stats.BombsPlanted.ToString())
-                        .Replace("{manual}", stats.WiresChosenManually.ToString())
-                        .Replace("{random}", stats.WiresChosenRandomly.ToString()));
-                }
+                    lines.Add(FormatPlanterLine(name, stats));
             }
 
-            if (lines.Count == 0) return;
+            if (!Config.ShowRoundStats || lines.Count == 0) return;
 
             Server.PrintToChatAll(Prefix(Localizer["statsRoundHeader"].Value));
             foreach (var line in lines)
@@ -389,6 +446,8 @@ namespace LuckyDefuse
             // Wrong wire selected
             if (_wire != wire)
             {
+                // Flag as real wire cut so stats count it as a wrong wire
+                _wrongWireCut = true;
                 bomb.C4Blow = 1f;
 
                 Server.PrintToChatAll(
@@ -402,18 +461,8 @@ namespace LuckyDefuse
             {
                 // Instantly defuse the bomb
                 bomb.DefuseCountDown = 0f;
-
-                // Kill all terrorists
-                foreach (var player in Utilities.GetPlayers())
-                {
-                    if (player.IsValid &&
-                        player.Team == CsTeam.Terrorist &&
-                        player.PawnIsAlive)
-                    {
-                        // Kill player with explosion and force death
-                        player.CommitSuicide(true, true);
-                    }
-                }
+                if (Config.KillTerroristsOnDefuse)
+                    KillAllTerrorists();
 
                 Server.PrintToChatAll(
                     Prefix(Localizer["cutCorrectWire"].Value
@@ -423,6 +472,21 @@ namespace LuckyDefuse
 
                 // Stats will be saved via EventBombDefused, flag as wire defuse
                 _wasWireDefuse = true;
+            }
+        }
+
+        // Kill every terrorist still alive
+        private static void KillAllTerrorists()
+        {
+            foreach (var player in Utilities.GetPlayers())
+            {
+                if (player.IsValid &&
+                    player.Team == CsTeam.Terrorist &&
+                    player.PawnIsAlive)
+                {
+                    // Kill player with explosion and force death
+                    player.CommitSuicide(true, true);
+                }
             }
         }
     }
