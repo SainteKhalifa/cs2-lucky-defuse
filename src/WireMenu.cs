@@ -3,7 +3,7 @@ using CounterStrikeSharp.API.Core;
 
 namespace LuckyDefuse
 {
-    public class WireMenu(BasePlugin plugin, string title, string[] options)
+    public class WireMenu(BasePlugin plugin, string title, string[] options, string footer)
     {
         public delegate void OptionConfirmedEventHandler(int option);
         public event OptionConfirmedEventHandler OnOptionConfirmed = static delegate { };
@@ -60,7 +60,7 @@ namespace LuckyDefuse
 
                     html += "<br>";
                 }
-                html += "<br>[W][S] up/down&nbsp;&nbsp;&nbsp;&nbsp;[SPACE] confirm";
+                html += "<br>" + footer;
                 _player.PrintToCenterHtml(html);
             });
         }

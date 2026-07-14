@@ -3,7 +3,9 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Drawing;
-using System.Globalization;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace LuckyDefuse
 {
@@ -80,10 +82,54 @@ namespace LuckyDefuse
         // Timer used for auto-choosing a wire if planter doesn't pick one
         private CounterStrikeSharp.API.Modules.Timers.Timer? _autoWireTimer;
 
+        // Translations loaded from lang/{language}.json, color tags already resolved
+        private Dictionary<string, string> _translations = new();
+
         // Adds default chat prefix
         private string Prefix(string message)
         {
             return $" {ChatColors.Default}{message}";
+        }
+
+        // Look up a translation for the configured language
+        private string T(string key)
+        {
+            return _translations.TryGetValue(key, out var value) ? value : key;
+        }
+
+        // Read the language file matching the config, independent of server culture
+        private void LoadTranslations()
+        {
+            var lang = Config.Language.ToLowerInvariant() == "fr" ? "fr" : "en";
+            var path = Path.Combine(ModuleDirectory, "lang", $"{lang}.json");
+            if (!File.Exists(path))
+                path = Path.Combine(ModuleDirectory, "lang", "en.json");
+
+            _translations = new Dictionary<string, string>();
+            if (!File.Exists(path))
+                return;
+
+            var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path));
+            if (raw == null)
+                return;
+
+            foreach (var (key, value) in raw)
+                _translations[key] = ReplaceColorTags(value);
+        }
+
+        // Replace {colorname} tags with chat color codes; data placeholders
+        // like {wire} or {player} don't match any color and are kept as-is
+        private static string ReplaceColorTags(string text)
+        {
+            return Regex.Replace(text, @"\{(\w+)\}", match =>
+            {
+                var name = match.Groups[1].Value;
+                const BindingFlags flags =
+                    BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Static;
+                var value = typeof(ChatColors).GetField(name, flags)?.GetValue(null)
+                            ?? typeof(ChatColors).GetProperty(name, flags)?.GetValue(null);
+                return value?.ToString() ?? match.Value;
+            });
         }
 
         public override void Load(bool hotReload)
@@ -101,23 +147,21 @@ namespace LuckyDefuse
 
             _db = new Database(dbPath);
 
-            // Set culture based on config language
-            var culture = Config.Language.ToLowerInvariant() == "fr" ? "fr-FR" : "en-US";
-            CultureInfo.CurrentCulture = new CultureInfo(culture);
-            CultureInfo.CurrentUICulture = new CultureInfo(culture);
+            // Load translations for the configured language
+            LoadTranslations();
 
             // Build menu options with translated color names
             _menuOptions = new string[_colors.Length];
             for (int i = 0; i < _colors.Length; ++i)
             {
-                var translatedColor = Localizer[_colorKeys[i]].Value;
+                var translatedColor = T(_colorKeys[i]);
                 _menuOptions[i] =
                     $"<span color=\"{_colors[i].Name.ToLowerInvariant()}\">{i + 1}. {translatedColor}</span>";
             }
 
             // Create menus
-            _planterMenu = new(this, Localizer["planterMenuTitle"].Value, _menuOptions);
-            _defuserMenu = new(this, Localizer["defuserMenuTitle"].Value, _menuOptions);
+            _planterMenu = new(this, T("planterMenuTitle"), _menuOptions, T("menuFooter"));
+            _defuserMenu = new(this, T("defuserMenuTitle"), _menuOptions, T("menuFooter"));
 
             // Round start reset
             RegisterEventHandler<EventRoundStart>((_, _) =>
@@ -203,8 +247,8 @@ namespace LuckyDefuse
                         _planterMenu?.Close();
 
                         _planter.PrintToChat(
-                            Localizer["randomWireChosen"].Value
-                                .Replace("{wire}", $"{_chatColors[_wire]}{Localizer[_colorKeys[_wire]].Value}")
+                            T("randomWireChosen")
+                                .Replace("{wire}", $"{_chatColors[_wire]}{T(_colorKeys[_wire])}")
                         );
                     }
                 }, TimerFlags.STOP_ON_MAPCHANGE);
@@ -265,8 +309,8 @@ namespace LuckyDefuse
                     _wireChosenManually = true;
 
                     _planter.PrintToChat(
-                        Localizer["wireChosen"].Value
-                            .Replace("{wire}", $"{_chatColors[option]}{Localizer[_colorKeys[option]].Value}")
+                        T("wireChosen")
+                            .Replace("{wire}", $"{_chatColors[option]}{T(_colorKeys[option])}")
                     );
                 }
             };
@@ -282,14 +326,14 @@ namespace LuckyDefuse
 
                 if (info.ArgCount < 2)
                 {
-                    info.ReplyToCommand(Prefix(Localizer["missingArgument"].Value));
+                    info.ReplyToCommand(Prefix(T("missingArgument")));
                     return;
                 }
 
                 if (!int.TryParse(info.GetArg(1), out int option) ||
                     option <= 0 || option > _colors.Length)
                 {
-                    info.ReplyToCommand(Prefix(Localizer["malformedArgument"].Value));
+                    info.ReplyToCommand(Prefix(T("malformedArgument")));
                     return;
                 }
 
@@ -308,15 +352,15 @@ namespace LuckyDefuse
                     _wireChosenManually = true;
 
                     info.ReplyToCommand(
-                        Localizer["wireChosen"].Value
-                            .Replace("{wire}", $"{_chatColors[option]}{Localizer[_colorKeys[option]].Value}")
+                        T("wireChosen")
+                            .Replace("{wire}", $"{_chatColors[option]}{T(_colorKeys[option])}")
                     );
 
                     _planterMenu?.Close();
                 }
                 else
                 {
-                    info.ReplyToCommand(Prefix(Localizer["noBomb"].Value));
+                    info.ReplyToCommand(Prefix(T("noBomb")));
                 }
             });
 
@@ -329,11 +373,11 @@ namespace LuckyDefuse
                 var stats = _db?.GetStats(player.AuthorizedSteamID.SteamId64.ToString());
                 if (stats == null)
                 {
-                    info.ReplyToCommand(Prefix(Localizer["noStats"].Value));
+                    info.ReplyToCommand(Prefix(T("noStats")));
                     return;
                 }
 
-                info.ReplyToCommand(Prefix(Localizer["statsSelfHeader"].Value));
+                info.ReplyToCommand(Prefix(T("statsSelfHeader")));
                 info.ReplyToCommand(Prefix(FormatDefuserLine(player.PlayerName, stats)));
                 info.ReplyToCommand(Prefix(FormatPlanterLine(player.PlayerName, stats)));
             });
@@ -347,14 +391,14 @@ namespace LuckyDefuse
                 var top = _db?.GetTopDefusers(5);
                 if (top == null || top.Count == 0)
                 {
-                    info.ReplyToCommand(Prefix(Localizer["noStats"].Value));
+                    info.ReplyToCommand(Prefix(T("noStats")));
                     return;
                 }
 
-                info.ReplyToCommand(Prefix(Localizer["topHeader"].Value));
+                info.ReplyToCommand(Prefix(T("topHeader")));
                 for (int i = 0; i < top.Count; ++i)
                 {
-                    info.ReplyToCommand(Prefix(Localizer["topLine"].Value
+                    info.ReplyToCommand(Prefix(T("topLine")
                         .Replace("{rank}", (i + 1).ToString())
                         .Replace("{player}", $"{ChatColors.Lime}{top[i].LastName}{ChatColors.Default}")
                         .Replace("{correct}", top[i].CorrectWires.ToString())
@@ -373,7 +417,7 @@ namespace LuckyDefuse
             if (_roundEnded || _planter == null || !_planter.IsValid)
                 return;
 
-            Server.PrintToChatAll(Prefix(Localizer["notification"].Value));
+            Server.PrintToChatAll(Prefix(T("notification")));
         }
 
         public override void Unload(bool hotReload)
@@ -384,7 +428,7 @@ namespace LuckyDefuse
         // Format the defuser stats line for chat
         private string FormatDefuserLine(string name, PlayerStats stats)
         {
-            return Localizer["statsDefuser"].Value
+            return T("statsDefuser")
                 .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
                 .Replace("{correct}", stats.CorrectWires.ToString())
                 .Replace("{wrong}", stats.WrongWires.ToString())
@@ -394,7 +438,7 @@ namespace LuckyDefuse
         // Format the planter stats line for chat
         private string FormatPlanterLine(string name, PlayerStats stats)
         {
-            return Localizer["statsPlanter"].Value
+            return T("statsPlanter")
                 .Replace("{player}", $"{ChatColors.Lime}{name}{ChatColors.Default}")
                 .Replace("{planted}", stats.BombsPlanted.ToString())
                 .Replace("{manual}", stats.WiresChosenManually.ToString())
@@ -438,7 +482,7 @@ namespace LuckyDefuse
 
             if (!Config.ShowRoundStats || lines.Count == 0) return;
 
-            Server.PrintToChatAll(Prefix(Localizer["statsRoundHeader"].Value));
+            Server.PrintToChatAll(Prefix(T("statsRoundHeader")));
             foreach (var line in lines)
                 Server.PrintToChatAll(Prefix(line));
         }
@@ -461,9 +505,9 @@ namespace LuckyDefuse
                 bomb.C4Blow = 1f;
 
                 Server.PrintToChatAll(
-                    Prefix(Localizer["cutWrongWire"].Value
+                    Prefix(T("cutWrongWire")
                         .Replace("{player}", _defuser.PlayerName)
-                        .Replace("{wire}", $"{_chatColors[wire]}{Localizer[_colorKeys[wire]].Value}"))
+                        .Replace("{wire}", $"{_chatColors[wire]}{T(_colorKeys[wire])}"))
                 );
             }
             // Correct wire selected
@@ -475,9 +519,9 @@ namespace LuckyDefuse
                     KillAllTerrorists();
 
                 Server.PrintToChatAll(
-                    Prefix(Localizer["cutCorrectWire"].Value
+                    Prefix(T("cutCorrectWire")
                         .Replace("{player}", _defuser.PlayerName)
-                        .Replace("{wire}", $"{_chatColors[wire]}{Localizer[_colorKeys[wire]].Value}"))
+                        .Replace("{wire}", $"{_chatColors[wire]}{T(_colorKeys[wire])}"))
                 );
 
                 // Stats will be saved via EventBombDefused, flag as wire defuse
