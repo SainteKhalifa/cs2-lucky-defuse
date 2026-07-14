@@ -17,8 +17,11 @@
             <ExcludeAssets>runtime</ExcludeAssets>
             <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.9" />
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+        <!-- SQLitePCLRaw 2.1.11 ships a native e_sqlite3 requiring at most GLIBC_2.28,
+             so it runs on common game-server distros (Debian 10+, Ubuntu 20.04+).
+             3.0.x requires GLIBC_2.33+ and fails to load on those servers. -->
+        <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="9.0.17" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
     </ItemGroup>
 
     <ItemGroup>
