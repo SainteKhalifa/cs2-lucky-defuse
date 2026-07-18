@@ -3,7 +3,7 @@
   "color_blue": "Blue",
   "color_yellow": "Yellow",
   "color_green": "Green",
-  "menuFooter": "[W][S] up/down&nbsp;&nbsp;&nbsp;&nbsp;[SPACE] confirm",
+  "menuFooter": "[W][S] up/down - [SPACE] confirm",
   "planterMenuTitle": "Choose the hot wire:",
   "defuserMenuTitle": "Test your luck and cut a wire:",
   "wireChosen": " {magenta}>> {default}You chose the {wire}{default} wire. The terrorists can defuse the bomb instantly if they cut it. Psssssht, don't tell them!",
