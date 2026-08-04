@@ -60,7 +60,9 @@ namespace LuckyDefuse
 
                     html += "<br>";
                 }
-                html += "<br>" + footer;
+                // No blank line before and explicit <br> after: some CS2 builds
+                // drop a trailing line that follows a double <br> or is unterminated
+                html += footer + "<br>";
                 _player.PrintToCenterHtml(html);
             });
         }
