@@ -62,7 +62,17 @@ jobs:
     - name: Generate release notes
       run: |
         git fetch --tags --force origin
+
+        # Previous release tag, when older tags are still present in the repo
         prev=$(git describe --tags --abbrev=0 "${{ github.ref_name }}^" 2>/dev/null || echo "")
+
+        # Fallback anchor: the commit before this one that bumped Version.cs.
+        # Every release bumps it (enforced above), and this keeps working even
+        # when older tags have been deleted from the repo.
+        if [ -z "$prev" ]; then
+          prev=$(git log --skip=1 -n 1 --format=%H -- ${{ env.REPOSITORY_FOLDER }}/Version.cs)
+        fi
+
         if [ -n "$prev" ]; then
           notes=$(git log --pretty=format:"- %s (%an)" "$prev..${{ github.ref_name }}")
         else
