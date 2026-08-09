@@ -37,9 +37,62 @@ namespace LuckyDefuse
                     bombs_planted          INTEGER NOT NULL DEFAULT 0,
                     wires_chosen_manually  INTEGER NOT NULL DEFAULT 0,
                     wires_chosen_randomly  INTEGER NOT NULL DEFAULT 0
-                )
+                );
+
+                -- Server-wide counters, one row per wire color. Kept apart from
+                -- player_stats so reading the trends stays a 4-row lookup
+                -- instead of an aggregation over every player.
+                CREATE TABLE IF NOT EXISTS wire_stats (
+                    color   INTEGER PRIMARY KEY,
+                    chosen  INTEGER NOT NULL DEFAULT 0,
+                    cut     INTEGER NOT NULL DEFAULT 0
+                );
                 """;
             cmd.ExecuteNonQuery();
+        }
+
+        // Count a wire deliberately picked by a planter.
+        // Rows are created on demand, so no seeding is needed.
+        public void IncrementWireChosen(int color)
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO wire_stats (color, chosen) VALUES (@color, 1)
+                ON CONFLICT(color) DO UPDATE SET chosen = chosen + 1
+                """;
+            cmd.Parameters.AddWithValue("@color", color);
+            cmd.ExecuteNonQuery();
+        }
+
+        // Count a wire cut by a defuser, right or wrong
+        public void IncrementWireCut(int color)
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO wire_stats (color, cut) VALUES (@color, 1)
+                ON CONFLICT(color) DO UPDATE SET cut = cut + 1
+                """;
+            cmd.Parameters.AddWithValue("@color", color);
+            cmd.ExecuteNonQuery();
+        }
+
+        // Totals indexed by color; colors never counted yet stay at 0
+        public (int[] Chosen, int[] Cut) GetWireTotals(int colorCount)
+        {
+            var chosen = new int[colorCount];
+            var cut = new int[colorCount];
+
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "SELECT color, chosen, cut FROM wire_stats";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var color = reader.GetInt32(0);
+                if (color < 0 || color >= colorCount) continue;
+                chosen[color] = reader.GetInt32(1);
+                cut[color] = reader.GetInt32(2);
+            }
+            return (chosen, cut);
         }
 
         public void UpdateDefuser(string steamId, string name, bool correctWire, bool normalDefuse)

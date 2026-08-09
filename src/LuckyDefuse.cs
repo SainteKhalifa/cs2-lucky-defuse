@@ -82,6 +82,9 @@ namespace LuckyDefuse
         // Timer used for auto-choosing a wire if planter doesn't pick one
         private CounterStrikeSharp.API.Modules.Timers.Timer? _autoWireTimer;
 
+        // Rounds elapsed since the wire trends were last shown
+        private int _roundsSinceWireTrends;
+
         // Translations loaded from lang/{language}.json, color tags already resolved
         private Dictionary<string, string> _translations = new();
 
@@ -189,6 +192,15 @@ namespace LuckyDefuse
 
                 _planterMenu?.Close();
                 _defuserMenu?.Close();
+
+                // Periodically show the server-wide wire trends between rounds
+                if (Config.WireTrendsEveryRounds > 0 &&
+                    ++_roundsSinceWireTrends >= Config.WireTrendsEveryRounds)
+                {
+                    _roundsSinceWireTrends = 0;
+                    ShowWireTrends();
+                }
+
                 return HookResult.Continue;
             });
 
@@ -307,6 +319,7 @@ namespace LuckyDefuse
                 {
                     _wire = option;
                     _wireChosenManually = true;
+                    _db?.IncrementWireChosen(option);
 
                     _planter.PrintToChat(
                         T("wireChosen")
@@ -350,6 +363,7 @@ namespace LuckyDefuse
                 {
                     _wire = option;
                     _wireChosenManually = true;
+                    _db?.IncrementWireChosen(option);
 
                     info.ReplyToCommand(
                         T("wireChosen")
@@ -497,6 +511,8 @@ namespace LuckyDefuse
             if (bomb == null || !bomb.IsValid || _defuser == null || !_defuser.IsValid)
                 return;
 
+            _db?.IncrementWireCut(wire);
+
             // Wrong wire selected
             if (_wire != wire)
             {
@@ -527,6 +543,42 @@ namespace LuckyDefuse
                 // Stats will be saved via EventBombDefused, flag as wire defuse
                 _wasWireDefuse = true;
             }
+        }
+
+        // Build "Red 35% | Green 22% | ..." or null when nothing was counted yet
+        private string? FormatWireDistribution(int[] counts)
+        {
+            var total = counts.Sum();
+            if (total == 0)
+                return null;
+
+            var parts = new string[counts.Length];
+            for (int i = 0; i < counts.Length; ++i)
+            {
+                var percent = (int)Math.Round(counts[i] * 100.0 / total);
+                parts[i] = $"{_chatColors[i]}{T(_colorKeys[i])}{ChatColors.Default} {percent}%";
+            }
+            return string.Join(" | ", parts);
+        }
+
+        // Show which wires get picked and cut the most, across all players
+        private void ShowWireTrends()
+        {
+            if (_db == null)
+                return;
+
+            var totals = _db.GetWireTotals(_colors.Length);
+            var chosen = FormatWireDistribution(totals.Chosen);
+            var cut = FormatWireDistribution(totals.Cut);
+
+            if (chosen == null && cut == null)
+                return;
+
+            Server.PrintToChatAll(Prefix(T("wireTrendsHeader")));
+            if (chosen != null)
+                Server.PrintToChatAll(Prefix(T("wireTrendsChosen").Replace("{stats}", chosen)));
+            if (cut != null)
+                Server.PrintToChatAll(Prefix(T("wireTrendsCut").Replace("{stats}", cut)));
         }
 
         // Kill every terrorist still alive

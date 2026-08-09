@@ -19,6 +19,10 @@ namespace LuckyDefuse
 
         [JsonPropertyName("show_round_stats")]
         public bool ShowRoundStats { get; set; } = true;
+
+        // Show the server-wide wire trends every N rounds (0 = never)
+        [JsonPropertyName("wire_trends_every_rounds")]
+        public int WireTrendsEveryRounds { get; set; } = 5;
     }
 
     public partial class LuckyDefuse : IPluginConfig<PluginConfig>

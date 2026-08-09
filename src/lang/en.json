@@ -20,5 +20,8 @@
   "statsSelfHeader": " {magenta}[Lucky Defuse] {default}Your all-time stats:",
   "noStats": " {magenta}[Lucky Defuse] {default}No stats recorded yet.",
   "topHeader": " {magenta}[Lucky Defuse] {default}Top 5 defusers:",
-  "topLine": " {magenta}{rank}.{default} {player} | Correct wires: {correct} | Wrong wires: {wrong} | Normal defuses: {normal}"
+  "topLine": " {magenta}{rank}.{default} {player} | Correct wires: {correct} | Wrong wires: {wrong} | Normal defuses: {normal}",
+  "wireTrendsHeader": " {magenta}[Lucky Defuse] {default}Server-wide wire trends:",
+  "wireTrendsChosen": " {magenta}>>{default} Hot wires chosen: {stats}",
+  "wireTrendsCut": " {magenta}>>{default} Wires cut: {stats}"
 }

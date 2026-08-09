@@ -33,6 +33,12 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 - Stats des T : bombes plantées, fils choisis manuellement, fils tirés aléatoirement
 - Fichier de base de données : `addons/counterstrikesharp/configs/plugins/LuckyDefuse/stats.db` (survit aux mises à jour du plugin ; une ancienne base présente dans le dossier du plugin est migrée automatiquement)
 
+**Tendances des fils**
+- Toutes les N manches, le chat affiche la répartition en % des fils sur l'ensemble des données du serveur
+- Deux distributions : les fils piégés les plus **choisis** par les planteurs, et les fils les plus **coupés** par les défuseurs
+- Seuls les choix manuels comptent comme « choisis » (les tirages aléatoires sont uniformes et fausseraient la tendance)
+- Compteurs stockés dans une table dédiée de 4 lignes : l'affichage ne lit que 4 lignes, sans agrégation sur tous les joueurs
+
 **Commandes**
 
 | Commande | Description |
@@ -77,7 +83,8 @@ Le fichier de configuration est généré automatiquement dans :
   "notification_delay": 30,
   "language": "fr",
   "kill_terrorists_on_defuse": true,
-  "show_round_stats": true
+  "show_round_stats": true,
+  "wire_trends_every_rounds": 5
 }
 ```
 
@@ -88,6 +95,7 @@ Le fichier de configuration est généré automatiquement dans :
 | `language` | Langue des messages (`en` ou `fr`) | `en` |
 | `kill_terrorists_on_defuse` | Tuer tous les T encore en vie quand la bombe est désamorcée | `true` |
 | `show_round_stats` | Afficher les stats dans le chat en fin de round | `true` |
+| `wire_trends_every_rounds` | Afficher les tendances des fils toutes les N manches (`0` = jamais) | `5` |
 
 ### Compiler soi-même
 
@@ -134,6 +142,12 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 - T stats: bombs planted, manually chosen wires, randomly chosen wires
 - Database file: `addons/counterstrikesharp/configs/plugins/LuckyDefuse/stats.db` (survives plugin updates; an old database found in the plugin folder is migrated automatically)
 
+**Wire trends**
+- Every N rounds, chat shows the server-wide wire distribution as percentages
+- Two distributions: the hot wires most **chosen** by planters, and the wires most **cut** by defusers
+- Only manual picks count as "chosen" (random picks are uniform and would flatten the trend)
+- Counters live in a dedicated 4-row table, so displaying them reads 4 rows instead of aggregating over every player
+
 **Commands**
 
 | Command | Description |
@@ -178,7 +192,8 @@ The config file is auto-generated at:
   "notification_delay": 30,
   "language": "en",
   "kill_terrorists_on_defuse": true,
-  "show_round_stats": true
+  "show_round_stats": true,
+  "wire_trends_every_rounds": 5
 }
 ```
 
@@ -189,6 +204,7 @@ The config file is auto-generated at:
 | `language` | Message language (`en` or `fr`) | `en` |
 | `kill_terrorists_on_defuse` | Kill all living Ts when the bomb gets defused | `true` |
 | `show_round_stats` | Show stats in chat at round end | `true` |
+| `wire_trends_every_rounds` | Show wire trends every N rounds (`0` = never) | `5` |
 
 ### Build from source
 

@@ -20,5 +20,8 @@
   "statsSelfHeader": " {magenta}[Lucky Defuse] {default}Vos stats globales :",
   "noStats": " {magenta}[Lucky Defuse] {default}Aucune stat enregistrée pour le moment.",
   "topHeader": " {magenta}[Lucky Defuse] {default}Top 5 des défuseurs :",
-  "topLine": " {magenta}{rank}.{default} {player} | Bons fils : {correct} | Mauvais fils : {wrong} | Désamorçages normaux : {normal}"
+  "topLine": " {magenta}{rank}.{default} {player} | Bons fils : {correct} | Mauvais fils : {wrong} | Désamorçages normaux : {normal}",
+  "wireTrendsHeader": " {magenta}[Lucky Defuse] {default}Tendances des fils sur le serveur :",
+  "wireTrendsChosen": " {magenta}>>{default} Fils piégés choisis : {stats}",
+  "wireTrendsCut": " {magenta}>>{default} Fils coupés : {stats}"
 }
