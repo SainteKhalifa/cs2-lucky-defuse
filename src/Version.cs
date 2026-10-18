@@ -2,6 +2,6 @@
 {
     public partial class LuckyDefuse
     {
-        public override string ModuleVersion => "1.3.0";
+        public override string ModuleVersion => "1.3.1";
     }
 }

@@ -1,7 +1,9 @@
-﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
 using System.Drawing;
 using System.Reflection;
 using System.Text.Json;
@@ -70,14 +72,17 @@ namespace LuckyDefuse
         // Indicates if bomb is currently being planted
         private bool _isPlanting;
 
-        // SQLite database for persistent stats
-        private Database? _db;
+        // SQLite stats, only ever touched from their own thread
+        private DatabaseWorker? _stats;
 
         // Indicates if the defuse was triggered by cutting the correct wire
         private bool _wasWireDefuse;
 
         // Indicates if the defuser cut a wrong wire (bomb blew up because of it)
         private bool _wrongWireCut;
+
+        // A wire was already cut for this bomb: one try per bomb
+        private bool _wireCut;
 
         // Timer used for auto-choosing a wire if planter doesn't pick one
         private CounterStrikeSharp.API.Modules.Timers.Timer? _autoWireTimer;
@@ -112,12 +117,20 @@ namespace LuckyDefuse
             if (!File.Exists(path))
                 return;
 
-            var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path));
-            if (raw == null)
-                return;
+            try
+            {
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path));
+                if (raw == null)
+                    return;
 
-            foreach (var (key, value) in raw)
-                _translations[key] = ReplaceColorTags(value);
+                foreach (var (key, value) in raw)
+                    _translations[key] = ReplaceColorTags(value);
+            }
+            catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
+            {
+                // Messages then show their keys instead of the whole plugin failing to load
+                Logger.LogError(e, "Lucky Defuse: cannot read {Path}", path);
+            }
         }
 
         // Replace {colorname} tags with chat color codes; data placeholders
@@ -148,7 +161,7 @@ namespace LuckyDefuse
             if (File.Exists(oldDbPath) && !File.Exists(dbPath))
                 File.Move(oldDbPath, dbPath);
 
-            _db = new Database(dbPath);
+            _stats = new DatabaseWorker(dbPath, Logger);
 
             // Load translations for the configured language
             LoadTranslations();
@@ -163,8 +176,17 @@ namespace LuckyDefuse
             }
 
             // Create menus
-            _planterMenu = new(this, T("planterMenuTitle"), _menuOptions, T("menuFooter"));
-            _defuserMenu = new(this, T("defuserMenuTitle"), _menuOptions, T("menuFooter"));
+            _planterMenu = new(T("planterMenuTitle"), _menuOptions, T("menuFooter"));
+            _defuserMenu = new(T("defuserMenuTitle"), _menuOptions, T("menuFooter"));
+
+            // One listener for the whole plugin: hands database results back to the
+            // game thread and drives whichever menu is open
+            RegisterListener<Listeners.OnTick>(() =>
+            {
+                _stats?.Pump();
+                _planterMenu?.Tick();
+                _defuserMenu?.Tick();
+            });
 
             // Round start reset
             RegisterEventHandler<EventRoundStart>((_, _) =>
@@ -183,6 +205,7 @@ namespace LuckyDefuse
                 _roundEnded = true;
                 _wasWireDefuse = false;
                 _wrongWireCut = false;
+                _wireCut = false;
 
                 // Kill pending timers
                 _notificationTimer?.Kill();
@@ -217,15 +240,17 @@ namespace LuckyDefuse
                 // Preselect a random wire
                 _wire = Random.Shared.Next(_colors.Length);
 
-                _planterMenu?.Open(@event.Userid);
+                // Bots can't read the menu and keep the random wire: left open, the
+                // menu would turn their movement and jumps into a wire choice
+                if (!@event.Userid.IsBot)
+                    _planterMenu?.Open(@event.Userid);
                 return HookResult.Continue;
             });
 
             // Bomb planting aborted
             RegisterEventHandler<EventBombAbortplant>((@event, _) =>
             {
-                if (_planter != null && @event.Userid != null &&
-                    @event.Userid.AuthorizedSteamID == _planter.AuthorizedSteamID)
+                if (IsSamePlayer(@event.Userid, _planter))
                 {
                     _planterMenu?.Close();
                     _isPlanting = false;
@@ -242,8 +267,15 @@ namespace LuckyDefuse
                     return HookResult.Continue;
 
                 _isPlanting = false;
+                _wireCut = false;
+
+                // A wire picked while planting is final now: counting it here, once,
+                // keeps re-picks and aborted plants out of the wire trends
+                if (_wireChosenManually)
+                    CountWireChosen(_wire);
 
                 // Start delayed notification timer
+                _notificationTimer?.Kill();
                 _notificationTimer = AddTimer(
                     Config.NotificationDelay,
                     Notify,
@@ -251,6 +283,7 @@ namespace LuckyDefuse
                 );
 
                 // Auto choose wire if planter did not choose
+                _autoWireTimer?.Kill();
                 _autoWireTimer = AddTimer(Config.PlanterMenuDuration, () =>
                 {
                     if (!_wireChosenManually && _planter != null && _planter.IsValid)
@@ -271,11 +304,15 @@ namespace LuckyDefuse
             // CT starts defusing
             RegisterEventHandler<EventBombBegindefuse>((@event, _) =>
             {
-                if (@event.Userid == null || !@event.Userid.IsValid)
+                // One try per bomb: once a wire is cut, whoever cut it keeps the credit
+                if (_wireCut || @event.Userid == null || !@event.Userid.IsValid)
                     return HookResult.Continue;
 
                 _defuser = @event.Userid;
-                _defuserMenu?.Open(@event.Userid);
+
+                // No menu for bots (see the planter menu)
+                if (!@event.Userid.IsBot)
+                    _defuserMenu?.Open(@event.Userid);
                 return HookResult.Continue;
             });
 
@@ -283,6 +320,11 @@ namespace LuckyDefuse
             RegisterEventHandler<EventBombAbortdefuse>((_, _) =>
             {
                 _defuserMenu?.Close();
+
+                // Wires can only be cut while defusing, ld_choose_wire included. Once
+                // a wire is cut, keep the defuser: he is credited when the bomb goes off.
+                if (!_wireCut)
+                    _defuser = null;
                 return HookResult.Continue;
             });
 
@@ -313,23 +355,14 @@ namespace LuckyDefuse
             });
 
             // Planter selects a wire
-            _planterMenu!.OnOptionConfirmed += option =>
+            _planterMenu.OnOptionConfirmed += option =>
             {
-                if (_planter != null && (_isPlanting || !_wireChosenManually))
-                {
-                    _wire = option;
-                    _wireChosenManually = true;
-                    _db?.IncrementWireChosen(option);
-
-                    _planter.PrintToChat(
-                        T("wireChosen")
-                            .Replace("{wire}", $"{_chatColors[option]}{T(_colorKeys[option])}")
-                    );
-                }
+                if (_planter != null && TryChoosePlanterWire(_planter, option))
+                    _planter.PrintToChat(WireChosenMessage(option));
             };
 
             // Defuser selects a wire
-            _defuserMenu!.OnOptionConfirmed += CutWire;
+            _defuserMenu.OnOptionConfirmed += CutWire;
 
             // Console command to choose a wire
             AddCommand("ld_choose_wire", "choose a wire", (player, info) =>
@@ -352,24 +385,13 @@ namespace LuckyDefuse
 
                 option--;
 
-                if (_defuser != null && _defuser.IsValid &&
-                    player.AuthorizedSteamID == _defuser.AuthorizedSteamID)
+                if (IsSamePlayer(player, _defuser))
                 {
                     CutWire(option);
                 }
-                else if (_planter != null &&
-                         player.AuthorizedSteamID == _planter.AuthorizedSteamID &&
-                         (_isPlanting || !_wireChosenManually))
+                else if (TryChoosePlanterWire(player, option))
                 {
-                    _wire = option;
-                    _wireChosenManually = true;
-                    _db?.IncrementWireChosen(option);
-
-                    info.ReplyToCommand(
-                        T("wireChosen")
-                            .Replace("{wire}", $"{_chatColors[option]}{T(_colorKeys[option])}")
-                    );
-
+                    info.ReplyToCommand(WireChosenMessage(option));
                     _planterMenu?.Close();
                 }
                 else
@@ -384,16 +406,22 @@ namespace LuckyDefuse
                 if (player == null || player.AuthorizedSteamID == null)
                     return;
 
-                var stats = _db?.GetStats(player.AuthorizedSteamID.SteamId64.ToString());
-                if (stats == null)
-                {
-                    info.ReplyToCommand(Prefix(T("noStats")));
-                    return;
-                }
+                var steamId = player.AuthorizedSteamID.SteamId64.ToString();
+                var name = player.PlayerName;
+                var context = info.CallingContext;
 
-                info.ReplyToCommand(Prefix(T("statsSelfHeader")));
-                info.ReplyToCommand(Prefix(FormatDefuserLine(player.PlayerName, stats)));
-                info.ReplyToCommand(Prefix(FormatPlanterLine(player.PlayerName, stats)));
+                _stats?.Query(db => db.GetStats(steamId), stats =>
+                {
+                    if (stats == null)
+                    {
+                        Reply(player, context, Prefix(T("noStats")));
+                        return;
+                    }
+
+                    Reply(player, context, Prefix(T("statsSelfHeader")));
+                    Reply(player, context, Prefix(FormatDefuserLine(name, stats)));
+                    Reply(player, context, Prefix(FormatPlanterLine(name, stats)));
+                });
             });
 
             // Chat command !ldtop - show top 5 defusers
@@ -402,27 +430,28 @@ namespace LuckyDefuse
                 if (player == null)
                     return;
 
-                var top = _db?.GetTopDefusers(5);
-                if (top == null || top.Count == 0)
-                {
-                    info.ReplyToCommand(Prefix(T("noStats")));
-                    return;
-                }
+                var context = info.CallingContext;
 
-                info.ReplyToCommand(Prefix(T("topHeader")));
-                for (int i = 0; i < top.Count; ++i)
+                _stats?.Query(db => db.GetTopDefusers(5), top =>
                 {
-                    info.ReplyToCommand(Prefix(T("topLine")
-                        .Replace("{rank}", (i + 1).ToString())
-                        .Replace("{player}", $"{ChatColors.Lime}{top[i].LastName}{ChatColors.Default}")
-                        .Replace("{correct}", top[i].CorrectWires.ToString())
-                        .Replace("{wrong}", top[i].WrongWires.ToString())
-                        .Replace("{normal}", top[i].NormalDefuses.ToString())));
-                }
+                    if (top.Count == 0)
+                    {
+                        Reply(player, context, Prefix(T("noStats")));
+                        return;
+                    }
+
+                    Reply(player, context, Prefix(T("topHeader")));
+                    for (int i = 0; i < top.Count; ++i)
+                    {
+                        Reply(player, context, Prefix(T("topLine")
+                            .Replace("{rank}", (i + 1).ToString())
+                            .Replace("{player}", $"{ChatColors.Lime}{top[i].LastName}{ChatColors.Default}")
+                            .Replace("{correct}", top[i].CorrectWires.ToString())
+                            .Replace("{wrong}", top[i].WrongWires.ToString())
+                            .Replace("{normal}", top[i].NormalDefuses.ToString())));
+                    }
+                });
             });
-
-            _planterMenu.Load();
-            _defuserMenu.Load();
         }
 
         // Delayed notification for all players
@@ -436,7 +465,57 @@ namespace LuckyDefuse
 
         public override void Unload(bool hotReload)
         {
-            _db?.Dispose();
+            _notificationTimer?.Kill();
+            _autoWireTimer?.Kill();
+
+            // Waits for pending writes, then closes the database
+            _stats?.Dispose();
+        }
+
+        // Same connected player? Compares entity indexes: SteamIDs are null for
+        // bots and for players Steam hasn't authenticated yet
+        private static bool IsSamePlayer(CCSPlayerController? a, CCSPlayerController? b)
+        {
+            return a != null && b != null && a.IsValid && b.IsValid && a.Index == b.Index;
+        }
+
+        // Answer a command once its database result is back: the CommandInfo is only
+        // valid while the command runs, so reply straight to the player instead
+        private static void Reply(CCSPlayerController player, CommandCallingContext context, string message)
+        {
+            if (!player.IsValid)
+                return;
+
+            if (context == CommandCallingContext.Console)
+                player.PrintToConsole(message);
+            else
+                player.PrintToChat(message);
+        }
+
+        // The planter picks the wire while planting, or once afterwards if he
+        // hadn't picked one yet. Returns false when he can't choose now.
+        private bool TryChoosePlanterWire(CCSPlayerController player, int option)
+        {
+            if (!IsSamePlayer(player, _planter) || !(_isPlanting || !_wireChosenManually))
+                return false;
+
+            _wire = option;
+            _wireChosenManually = true;
+
+            // Picked after the plant: final right away (otherwise counted in EventBombPlanted)
+            if (!_isPlanting)
+                CountWireChosen(option);
+            return true;
+        }
+
+        private void CountWireChosen(int wire)
+        {
+            _stats?.Enqueue(db => db.IncrementWireChosen(wire));
+        }
+
+        private string WireChosenMessage(int wire)
+        {
+            return T("wireChosen").Replace("{wire}", $"{_chatColors[wire]}{T(_colorKeys[wire])}");
         }
 
         // Format the defuser stats line for chat
@@ -461,7 +540,16 @@ namespace LuckyDefuse
 
         private void SaveAndShowStats(bool bombDefused)
         {
-            var lines = new List<string>();
+            if (_stats == null)
+                return;
+
+            // Read everything from the game objects now: the database answers a
+            // few ticks later, once _planter and _defuser have been cleared
+            string? defuserId = null, defuserName = null;
+            string? planterId = null, planterName = null;
+            var correctWire = bombDefused && _wasWireDefuse;
+            var normalDefuse = bombDefused && !_wasWireDefuse;
+            var manual = _wireChosenManually;
 
             // Only credit the defuser if he actually defused the bomb,
             // or actually cut a wrong wire (not just "was defusing when it blew up")
@@ -469,49 +557,75 @@ namespace LuckyDefuse
                 _defuser.AuthorizedSteamID != null &&
                 (bombDefused || _wrongWireCut))
             {
-                var steamId = _defuser.AuthorizedSteamID.SteamId64.ToString();
-                var name = _defuser.PlayerName;
-
-                _db?.UpdateDefuser(steamId, name,
-                    correctWire: bombDefused && _wasWireDefuse,
-                    normalDefuse: bombDefused && !_wasWireDefuse);
-
-                var stats = _db?.GetStats(steamId);
-                if (stats != null)
-                    lines.Add(FormatDefuserLine(name, stats));
+                defuserId = _defuser.AuthorizedSteamID.SteamId64.ToString();
+                defuserName = _defuser.PlayerName;
             }
 
             if (_planter != null && _planter.IsValid &&
                 _planter.AuthorizedSteamID != null)
             {
-                var steamId = _planter.AuthorizedSteamID.SteamId64.ToString();
-                var name = _planter.PlayerName;
-
-                _db?.UpdatePlanter(steamId, name, _wireChosenManually);
-
-                var stats = _db?.GetStats(steamId);
-                if (stats != null)
-                    lines.Add(FormatPlanterLine(name, stats));
+                planterId = _planter.AuthorizedSteamID.SteamId64.ToString();
+                planterName = _planter.PlayerName;
             }
 
-            if (!Config.ShowRoundStats || lines.Count == 0) return;
+            if (defuserId == null && planterId == null)
+                return;
 
-            Server.PrintToChatAll(Prefix(T("statsRoundHeader")));
-            foreach (var line in lines)
-                Server.PrintToChatAll(Prefix(line));
+            var showStats = Config.ShowRoundStats;
+            _stats.Query(db =>
+            {
+                PlayerStats? defuserStats = null, planterStats = null;
+
+                if (defuserId != null)
+                {
+                    db.UpdateDefuser(defuserId, defuserName!, correctWire, normalDefuse);
+                    if (showStats)
+                        defuserStats = db.GetStats(defuserId);
+                }
+
+                if (planterId != null)
+                {
+                    db.UpdatePlanter(planterId, planterName!, manual);
+                    if (showStats)
+                        planterStats = db.GetStats(planterId);
+                }
+
+                return (defuserStats, planterStats);
+            }, result =>
+            {
+                var lines = new List<string>();
+                if (result.defuserStats != null)
+                    lines.Add(FormatDefuserLine(defuserName!, result.defuserStats));
+                if (result.planterStats != null)
+                    lines.Add(FormatPlanterLine(planterName!, result.planterStats));
+
+                if (lines.Count == 0)
+                    return;
+
+                Server.PrintToChatAll(Prefix(T("statsRoundHeader")));
+                foreach (var line in lines)
+                    Server.PrintToChatAll(Prefix(line));
+            });
         }
 
         // Called when a CT cuts a wire
         private void CutWire(int wire)
         {
+            // One try per bomb: ld_choose_wire could otherwise cut wire after wire.
+            // Cheap checks first, so the entity scan below only runs for a real cut.
+            if (_wireCut || _defuser == null || !_defuser.IsValid)
+                return;
+
             var bomb = Utilities
                 .FindAllEntitiesByDesignerName<CPlantedC4>("planted_c4")
                 .FirstOrDefault();
 
-            if (bomb == null || !bomb.IsValid || _defuser == null || !_defuser.IsValid)
+            if (bomb == null || !bomb.IsValid)
                 return;
 
-            _db?.IncrementWireCut(wire);
+            _wireCut = true;
+            _defuserMenu?.Close();
+            _stats?.Enqueue(db => db.IncrementWireCut(wire));
 
             // Wrong wire selected
             if (_wire != wire)
@@ -564,21 +678,21 @@ namespace LuckyDefuse
         // Show which wires get picked and cut the most, across all players
         private void ShowWireTrends()
         {
-            if (_db == null)
-                return;
+            var colorCount = _colors.Length;
+            _stats?.Query(db => db.GetWireTotals(colorCount), totals =>
+            {
+                var chosen = FormatWireDistribution(totals.Chosen);
+                var cut = FormatWireDistribution(totals.Cut);
 
-            var totals = _db.GetWireTotals(_colors.Length);
-            var chosen = FormatWireDistribution(totals.Chosen);
-            var cut = FormatWireDistribution(totals.Cut);
+                if (chosen == null && cut == null)
+                    return;
 
-            if (chosen == null && cut == null)
-                return;
-
-            Server.PrintToChatAll(Prefix(T("wireTrendsHeader")));
-            if (chosen != null)
-                Server.PrintToChatAll(Prefix(T("wireTrendsChosen").Replace("{stats}", chosen)));
-            if (cut != null)
-                Server.PrintToChatAll(Prefix(T("wireTrendsCut").Replace("{stats}", cut)));
+                Server.PrintToChatAll(Prefix(T("wireTrendsHeader")));
+                if (chosen != null)
+                    Server.PrintToChatAll(Prefix(T("wireTrendsChosen").Replace("{stats}", chosen)));
+                if (cut != null)
+                    Server.PrintToChatAll(Prefix(T("wireTrendsCut").Replace("{stats}", cut)));
+            });
         }
 
         // Kill every terrorist still alive

@@ -12,7 +12,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CounterStrikeSharp.API" Version="*">
+        <!-- Pinned to the server's CounterStrikeSharp: with "*" every build took the
+             latest API, which may not match what the server actually runs. -->
+        <PackageReference Include="CounterStrikeSharp.API" Version="1.0.376">
             <PrivateAssets>none</PrivateAssets>
             <ExcludeAssets>runtime</ExcludeAssets>
             <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

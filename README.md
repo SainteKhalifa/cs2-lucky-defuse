@@ -14,19 +14,22 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 
 **Système de fils**
 - Quand un T plante la bombe, un menu s'affiche pour choisir le fil piégé (1 parmi 4 : Rouge, Vert, Bleu, Jaune)
-- Si le T ne choisit pas dans les 5 secondes, un fil est tiré aléatoirement
+- Si le T ne choisit pas avant la fermeture du menu (`planter_menu_duration`, 10 secondes par défaut), un fil est tiré aléatoirement
+- Les bots n'ont pas de menu : un bot planteur garde un fil tiré au hasard, un bot défuseur désamorce normalement
 - Quand un CT commence à désamorcer, un menu s'affiche pour couper un fil
 - Bon fil coupé → désamorçage instantané + tous les T encore en vie sont tués
 - Mauvais fil coupé → la bombe explose immédiatement
+- Un seul fil par bombe : une fois un fil coupé, pas de second essai
 - Désamorçage normal (sans choisir de fil) → tous les T encore en vie sont tués
 
 **Menu de sélection**
-- Navigation avec les touches W (haut) et S (bas)
-- Confirmation avec ESPACE
+- Navigation avec les touches Z (haut) et S (bas) en AZERTY, W et S en QWERTY : ce sont les touches pour avancer et reculer. Maintenir la touche fait défiler
+- Confirmation avec ESPACE, sur un nouvel appui : une touche déjà enfoncée à l'ouverture du menu ne choisit rien
 - Affichage en couleur avec indicateurs visuels ◀ ▶
 - Commande console alternative : `ld_choose_wire <1-4>`
 
 **Statistiques persistantes (SQLite)**
+- Écritures sur un thread dédié, base en mode WAL : choisir ou couper un fil ne ralentit plus le serveur (jusqu'à 20 ms par écriture auparavant)
 - Chaque joueur est suivi par son Steam ID (persistant même en cas de changement de pseudo)
 - Les stats sont affichées dans le chat à la fin de chaque round (bombe désamorcée ou explosée)
 - Stats des CT : bons fils coupés, mauvais fils coupés, désamorçages normaux
@@ -59,6 +62,7 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 | Tuer les T sur désamorçage par fil | Oui | Oui (désactivable) |
 | Tuer les T sur désamorçage normal | Non | Oui (désactivable) |
 | Statistiques persistantes SQLite | Non | Oui |
+| Base de données hors du thread du jeu (WAL) | Non | Oui |
 | Affichage stats en fin de round | Non | Oui (désactivable) |
 | Commandes `!ldstats` / `!ldtop` | Non | Oui |
 | Traduction des couleurs de fils | Non | Oui |
@@ -123,19 +127,22 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 
 **Wire system**
 - When a T plants the bomb, a menu appears to choose the hot wire (1 of 4: Red, Green, Blue, Yellow)
-- If the T doesn't choose within 5 seconds, a wire is selected randomly
+- If the T doesn't choose before the menu closes (`planter_menu_duration`, 10 seconds by default), a wire is selected randomly
+- Bots get no menu: a bot planter keeps a random wire, a bot defuser defuses normally
 - When a CT starts defusing, a menu appears to cut a wire
 - Correct wire cut → instant defuse + all living T players are killed
 - Wrong wire cut → bomb explodes immediately
+- One wire per bomb: once a wire is cut, there is no second try
 - Normal defuse (without choosing a wire) → all living T players are killed
 
 **Selection menu**
-- Navigate with W (up) and S (down)
-- Confirm with SPACE
+- Navigate with W (up) and S (down), Z and S on AZERTY: the forward and back keys. Hold the key to scroll
+- Confirm with SPACE, on a new press: a key already held when the menu opens chooses nothing
 - Color-coded display with visual indicators ◀ ▶
 - Alternative console command: `ld_choose_wire <1-4>`
 
 **Persistent statistics (SQLite)**
+- Writes run on a dedicated thread, database in WAL mode: choosing or cutting a wire no longer slows the server down (up to 20 ms per write before)
 - Each player is tracked by their Steam ID (persistent even after nickname changes)
 - Stats are displayed in chat at the end of each round (bomb defused or exploded)
 - CT stats: correct wires cut, wrong wires cut, normal defuses
@@ -168,6 +175,7 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 | Kill Ts on wire defuse | Yes | Yes (toggleable) |
 | Kill Ts on normal defuse | No | Yes (toggleable) |
 | Persistent SQLite statistics | No | Yes |
+| Database off the game thread (WAL) | No | Yes |
 | Stats display at round end | No | Yes (toggleable) |
 | `!ldstats` / `!ldtop` commands | No | Yes |
 | Translated wire colors | No | Yes |
