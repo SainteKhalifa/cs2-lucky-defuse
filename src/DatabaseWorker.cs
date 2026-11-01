@@ -15,10 +15,11 @@ namespace LuckyDefuse
         private readonly ConcurrentQueue<Action> _results = new();
         private readonly Thread _thread;
 
-        public DatabaseWorker(string path, ILogger logger)
+        // The database opens its connection on the first job, on this thread
+        public DatabaseWorker(Database db, ILogger logger)
         {
             _logger = logger;
-            _db = new Database(path);
+            _db = db;
             _thread = new Thread(Run) { IsBackground = true, Name = "LuckyDefuse DB" };
             _thread.Start();
         }

@@ -161,7 +161,12 @@ namespace LuckyDefuse
             if (File.Exists(oldDbPath) && !File.Exists(dbPath))
                 File.Move(oldDbPath, dbPath);
 
-            _stats = new DatabaseWorker(dbPath, Logger);
+            // No database host: the local SQLite file, as before. Otherwise MySQL or MariaDB
+            var database = string.IsNullOrWhiteSpace(Config.DatabaseHost)
+                ? Database.Sqlite(dbPath)
+                : Database.MySql(Config.DatabaseHost, Config.DatabasePort, Config.DatabaseName,
+                    Config.DatabaseUser, Config.DatabasePassword);
+            _stats = new DatabaseWorker(database, Logger);
 
             // Load translations for the configured language
             LoadTranslations();

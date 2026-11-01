@@ -19,11 +19,14 @@
             <ExcludeAssets>runtime</ExcludeAssets>
             <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <!-- SQLitePCLRaw 2.1.11 ships a native e_sqlite3 requiring at most GLIBC_2.28,
+        <!-- SQLitePCLRaw 2.1.x ships a native e_sqlite3 requiring at most GLIBC_2.28,
              so it runs on common game-server distros (Debian 10+, Ubuntu 20.04+).
-             3.0.x requires GLIBC_2.33+ and fails to load on those servers. -->
+             3.0.x requires GLIBC_2.33+ and fails to load on those servers.
+             2.1.12+ bundles a SQLite fixed for CVE-2025-6965 (GHSA-2m69-gcr7-jv3q). -->
         <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="9.0.17" />
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />
+        <!-- Optional MySQL / MariaDB storage (database_host in the config) -->
+        <PackageReference Include="MySqlConnector" Version="2.6.2" />
     </ItemGroup>
 
     <ItemGroup>

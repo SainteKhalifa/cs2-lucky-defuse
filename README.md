@@ -62,6 +62,7 @@ Ce plugin ajoute un mini-jeu de désamorçage de bombe basé sur la chance. Quan
 | Tuer les T sur désamorçage par fil | Oui | Oui (désactivable) |
 | Tuer les T sur désamorçage normal | Non | Oui (désactivable) |
 | Statistiques persistantes SQLite | Non | Oui |
+| Statistiques dans MySQL ou MariaDB (au choix) | Non | Oui |
 | Base de données hors du thread du jeu (WAL) | Non | Oui |
 | Affichage stats en fin de round | Non | Oui (désactivable) |
 | Commandes `!ldstats` / `!ldtop` | Non | Oui |
@@ -88,7 +89,12 @@ Le fichier de configuration est généré automatiquement dans :
   "language": "fr",
   "kill_terrorists_on_defuse": true,
   "show_round_stats": true,
-  "wire_trends_every_rounds": 5
+  "wire_trends_every_rounds": 5,
+  "database_host": "",
+  "database_port": 3306,
+  "database_name": "",
+  "database_user": "",
+  "database_password": ""
 }
 ```
 
@@ -100,6 +106,17 @@ Le fichier de configuration est généré automatiquement dans :
 | `kill_terrorists_on_defuse` | Tuer tous les T encore en vie quand la bombe est désamorcée | `true` |
 | `show_round_stats` | Afficher les stats dans le chat en fin de round | `true` |
 | `wire_trends_every_rounds` | Afficher les tendances des fils toutes les N manches (`0` = jamais) | `5` |
+| `database_host` | Hôte MySQL ou MariaDB ; vide : les stats restent dans `stats.db` (SQLite) | `""` |
+| `database_port` | Port de la base | `3306` |
+| `database_name`, `database_user`, `database_password` | La base et son compte | `""` |
+
+#### Base de données
+
+Par défaut, les stats sont dans `stats.db` (SQLite), à côté de la config : rien à installer. Avec `database_host`, elles vont dans cette base MySQL ou MariaDB, par exemple pour les afficher sur un site.
+
+- Le plugin y crée ses tables `player_stats` et `wire_stats` : le compte a besoin de `SELECT`, `INSERT`, `UPDATE` et `CREATE` sur la base. Sans `CREATE`, un admin crée les tables avant.
+- La connexion se fait hors du thread du jeu : une base injoignable ne fige pas le serveur, et la connexion se rouvre à l'écriture suivante.
+- Les stats déjà dans `stats.db` ne sont pas reprises automatiquement.
 
 ### Compiler soi-même
 
@@ -175,6 +192,7 @@ This plugin adds a luck-based bomb defuse mini-game. When the bomb is planted, t
 | Kill Ts on wire defuse | Yes | Yes (toggleable) |
 | Kill Ts on normal defuse | No | Yes (toggleable) |
 | Persistent SQLite statistics | No | Yes |
+| Statistics in MySQL or MariaDB (optional) | No | Yes |
 | Database off the game thread (WAL) | No | Yes |
 | Stats display at round end | No | Yes (toggleable) |
 | `!ldstats` / `!ldtop` commands | No | Yes |
@@ -201,7 +219,12 @@ The config file is auto-generated at:
   "language": "en",
   "kill_terrorists_on_defuse": true,
   "show_round_stats": true,
-  "wire_trends_every_rounds": 5
+  "wire_trends_every_rounds": 5,
+  "database_host": "",
+  "database_port": 3306,
+  "database_name": "",
+  "database_user": "",
+  "database_password": ""
 }
 ```
 
@@ -213,6 +236,17 @@ The config file is auto-generated at:
 | `kill_terrorists_on_defuse` | Kill all living Ts when the bomb gets defused | `true` |
 | `show_round_stats` | Show stats in chat at round end | `true` |
 | `wire_trends_every_rounds` | Show wire trends every N rounds (`0` = never) | `5` |
+| `database_host` | MySQL or MariaDB host; empty: the stats stay in `stats.db` (SQLite) | `""` |
+| `database_port` | Database port | `3306` |
+| `database_name`, `database_user`, `database_password` | The database and its account | `""` |
+
+#### Database
+
+By default the stats live in `stats.db` (SQLite), next to the config: nothing to install. With `database_host`, they go to that MySQL or MariaDB database instead, for example to show them on a website.
+
+- The plugin creates its `player_stats` and `wire_stats` tables there: the account needs `SELECT`, `INSERT`, `UPDATE` and `CREATE` on the database. Without `CREATE`, an admin creates the tables first.
+- The connection happens off the game thread: an unreachable database never freezes the server, and the connection reopens on the next write.
+- Stats already in `stats.db` are not imported automatically.
 
 ### Build from source
 
