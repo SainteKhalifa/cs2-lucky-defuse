@@ -96,7 +96,7 @@ namespace LuckyDefuse
         // Adds default chat prefix
         private string Prefix(string message)
         {
-            return $" {ChatColors.Default}{message}";
+            return $" {ChatColors.Gold}[LuckyDefuse]{ChatColors.Default} {message}";
         }
 
         // Look up a translation for the configured language
